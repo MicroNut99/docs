@@ -72,6 +72,9 @@ again on its next boot.
 ## 6. Quick check before burning
 1. The build says the CD loader and the Sub-CPU program are identical to OpenLara's.
 2. The disc folder holds `APP.BIN`, `CDLOADER.BIN`, `IMAGE.RAW`, `OPENLARA.32X`, `TITLE.PKD`.
-3. Burn the `.cue`.
+3. **Run the `.cue` in Fusion** (Sega CD + 32X). It must get past the SEGA logo to the boot
+   splash. Fusion has no RAM cart, so it stops there (as noted in the OpenJazz addendum);
+   that is expected. A black screen after the SEGA logo in Fusion: don't burn.
+4. Burn the `.cue`.
 
 On the console: SEGA logo → boot splash → the game's loading screen → the game.
