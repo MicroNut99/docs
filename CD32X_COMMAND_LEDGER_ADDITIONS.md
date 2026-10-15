@@ -30,16 +30,23 @@ two parts.
 | 64 | Cart → CRAM | first colour (0–63) | COMM8L = count << 22 \| cart offset (count 1–64, first + count ≤ 64) | COMM12 = 1 ok / 0 refused | 12 `set_palette` |
 | 65 | VDP register | `0x8000 \| reg << 8 \| value` (registers 0–23 only, others ignored) | – | – | 34 `set_vdp_reg` |
 | 66 | VSRAM word | VSRAM byte address: 0 plane A, 2 plane B (full-screen V scroll; up to 0x4E in column mode) | COMM8 = the scroll value | – | 36 `set_vsram` (new) |
+| 67 | Cart → VRAM columns (REV4) | VRAM byte address of the first column's top word (even) | COMM8L = (columns − 1) << 30 \| words a column << 22 \| cart offset (even; 1–4 columns of 1–255 words, one column after the other; all within one 1 MB bank of the cart window) | COMM12 = 1 ok / 0 refused | 37 `copy_vram_col` (new) |
 
 Uses:
 - tiles, plane maps and the horizontal scroll table: 63 (from the cart) or 62 (single words);
 - palette: 64; plane size, scroll mode, plane addresses, display: 65; vertical scroll: 66.
+- a plane map column (a level scrolling sideways: a new column every 8 pixels): 67 - column k
+  goes to address + 2 k, its words 128 bytes apart (a 64-cell-wide map).
 
-## 2. Sub-CPU → 68000 listener command 36: `set_vsram` (SuperTux CD32X REV2)
+**67 status: added in SuperTux CD32X REV4 (15 Oct 2026), boot test pending** (Fusion, then the
+console - as 62–66 were).
+
+## 2. Sub-CPU → 68000 listener commands 36 and 37 (SuperTux CD32X REV2 / REV4)
 
 | MD_CMD | Name | Arguments | Notes |
 |---|---|---|---|
-| 36 | `set_vsram` | addr (VSRAM byte address, masked to 0x7E), word | `MD_CMD_END` is now **37** |
+| 36 | `set_vsram` | addr (VSRAM byte address, masked to 0x7E), word | REV2 |
+| 37 | `copy_vram_col` | addr (VRAM byte address), src (68000 address), words | REV4: `copy_vram` with the VDP auto-increment at 128 (0x8F80), put back to 2 afterwards. `MD_CMD_END` is now **38** |
 
 **Why a new routine:** VSRAM is not video RAM. `set_vram`'s address command always targets VRAM
 (`0x4000….`); a VSRAM write needs the code `0x40000010`. Same shape as `set_vram`:
@@ -49,7 +56,7 @@ command loop, never in an interrupt. It adds 48 bytes to the listener (`md_start
 
 The ledger PDF's 68000 list ends at 34 `SET_VDP_REG`, 35 `END`. The current list:
 34 `set_vdp_reg` (Kobo K19), **35 `start_d32xr`** (D32X M1), **36 `set_vsram`** (REV2),
-`MD_CMD_END` 37.
+**37 `copy_vram_col`** (REV4), `MD_CMD_END` 38.
 
 ## 3. The SH2 command numbers in use (this stack)
 
@@ -68,13 +75,13 @@ The ledger PDF's 68000 list ends at 34 `SET_VDP_REG`, 35 `END`. The current list
 | 57 / 58 | backup RAM word get / put |
 | 60 | D32X: start D32XR from the cart (never returns) |
 | 61 | save area: 4 KB piece → cart 0x3F0000 + COMM2 × 4 KB; reply COMM12 |
-| **62–66** | **the Genesis picture (section 1)** |
+| **62–67** | **the Genesis picture (section 1)** |
 
-Free: 39–43, 49, 55, 67 and up.
+Free: 39–43, 49, 55, 68 and up.
 
 ## 4. Numbers that mean something else on the cartridge stack (OpenTyrian, `cart_md.s`)
 
 The OpenTyrian addendum lists its own numbers: **60** CD find, **61** CD read, **62 / 63** SRAM
 read / write (streamed). Those belong to the cartridge stack, not this one, but they clash with
 60–63 here. Code moved between the two stacks must check this table. New commands on either stack
-should take numbers free on both (67 and up).
+should take numbers free on both (68 and up).
