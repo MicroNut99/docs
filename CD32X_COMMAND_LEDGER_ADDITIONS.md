@@ -85,3 +85,20 @@ The OpenTyrian addendum lists its own numbers: **60** CD find, **61** CD read, *
 read / write (streamed). Those belong to the cartridge stack, not this one, but they clash with
 60–63 here. Code moved between the two stacks must check this table. New commands on either stack
 should take numbers free on both (68 and up).
+
+## 5. The RAM cart save area: pieces in use (CMD 58 + 61)
+
+Cart `0x3F0000`-`0x400000`, 16 pieces of 4 KB (CMD 61 takes COMM2 & 15). Read straight from the
+cart by the SH2 at `0x223F0000 + piece × 4096` (cache-through). Battery-backed: survives power-off.
+One piece, one owner - **never reuse a piece with a different meaning**, the same rule as the
+command numbers.
+
+| Piece | Cart | Owner |
+|---|---|---|
+| 0-4 | 0x3F0000-0x3F4FFF | OpenJazz CD32X: `openjazz.cfg`, `SAVE.0`-`SAVE.3` |
+| 5-9 | 0x3F5000-0x3F9FFF | Holiday Hare '95 (OpenJazz CD32X) |
+| 10 | 0x3FA000 | OpenJazz CD32X port settings (J19) |
+| 13 | 0x3FD000 | **SuperTux CD32X REV5**: options, high scores, 7 game slots ("STX2", 368 bytes) |
+
+Free: 11, 12, 14, 15. (OpenLara CD32X used `0x3F0000` settings and `0x3F0400` saved game -
+inside piece 0; it and OpenJazz share the cart only one at a time.)
