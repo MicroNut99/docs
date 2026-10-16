@@ -1,25 +1,23 @@
 
 https://consolemods.org/wiki/Genesis:MD_32X_RAM_Cart
 
-
-KOBO_DELUXE_FUSION ISO only
+KOBO_DELUXE_FUSION
 https://www.mediafire.com/file/bv7vlr15ywxy33y/KOBO_DELUXE_FUSION.7z/file
 
-KOBO_DELUXE with bin/cue
+KOBO_DELUXE with bin/cue music
 Standalone for the SEGA CD32X Kega Fusion Emulator 
 https://www.mediafire.com/file/310397lqxp2b98m/KOBO_DELUXE.7z/file
 
-
-KOBO_CD32X_FINAL.7z
+KOBO_CD32X_FINAL.7z 4MB RAM CART
 https://www.mediafire.com/file/hlj4k6wgynjve7j/KOBO_CD32X_FINAL.7z/file
 
-Kobo32x_hw.zip
+Kobo32x_hw.zip CD32X 4MB RAM CART + Source
 https://www.mediafire.com/file/l9kb1nylarphs4f/kobo32x_hw.zip/file
 
-OpenTyrian32X + SegaCD
+OpenTyrian32X + SegaCD - Does not require a 4MB RAM cart
 https://www.mediafire.com/file/b81bpuwnnbwwpwq/TYRIAN32XCD.zip/file
 
-Sonic32X+1 ROM 
+Sonic32X+1 ROM - Does not require a 4MB RAM cart
 https://www.mediafire.com/file/u9j4s7om096ganq/Sonic32X+1.zip/file
 
 OpenLaraCD 32X RAM CART 
@@ -34,15 +32,10 @@ https://www.mediafire.com/file/iifiscpiox1qj4b/HurricanCD32X.zip/file
 BlakeStone32X
 https://www.mediafire.com/file/jfnlr737me0l2ut/BlakeStone32X.32x/file
 
-KOBO_CD32X_FINAL.7z
-https://www.mediafire.com/file/hlj4k6wgynjve7j/KOBO_CD32X_FINAL.7z/file
+SuperTuxCD32X
+https://www.mediafire.com/file/buqzgxnhniwpdx6/SuperTuxCD32X.zip/file
 
-Kobo32x_hw.zip
-https://www.mediafire.com/file/l9kb1nylarphs4f/kobo32x_hw.zip/file
-
-KOBO_DELUXE with bin/cue
-Standalone for the SEGA CD32X Kega Fusion Emulator 
-https://www.mediafire.com/file/310397lqxp2b98m/KOBO_DELUXE.7z/file
+____________________________________________________________________________
 
 Copy the folder "kobo32x" to: \sega-toolchain-12.1\sega\
 To setup a new standalone project, use once "new_setup.sh" to copy required files.
