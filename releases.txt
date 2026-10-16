@@ -1,0 +1,67 @@
+
+https://consolemods.org/wiki/Genesis:MD_32X_RAM_Cart
+
+
+KOBO_DELUXE_FUSION ISO only
+https://www.mediafire.com/file/bv7vlr15ywxy33y/KOBO_DELUXE_FUSION.7z/file
+
+KOBO_DELUXE with bin/cue
+Standalone for the SEGA CD32X Kega Fusion Emulator 
+https://www.mediafire.com/file/310397lqxp2b98m/KOBO_DELUXE.7z/file
+
+
+KOBO_CD32X_FINAL.7z
+https://www.mediafire.com/file/hlj4k6wgynjve7j/KOBO_CD32X_FINAL.7z/file
+
+Kobo32x_hw.zip
+https://www.mediafire.com/file/l9kb1nylarphs4f/kobo32x_hw.zip/file
+
+OpenTyrian32X + SegaCD
+https://www.mediafire.com/file/b81bpuwnnbwwpwq/TYRIAN32XCD.zip/file
+
+Sonic32X+1 ROM 
+https://www.mediafire.com/file/u9j4s7om096ganq/Sonic32X+1.zip/file
+
+OpenLaraCD 32X RAM CART 
+https://www.mediafire.com/file/9i8ogi9eodsg50u/OpenLaraCD32X.zip/file
+
+OpenJazzCD 32X RAM CART
+https://www.mediafire.com/file/vj7xu0uedcgjdbh/OpenJazzCD32X.zip/file
+
+Hurrican
+https://www.mediafire.com/file/iifiscpiox1qj4b/HurricanCD32X.zip/file
+
+BlakeStone32X
+https://www.mediafire.com/file/jfnlr737me0l2ut/BlakeStone32X.32x/file
+
+Real Hardware
+
+It all works now.
+
+KOBO_CD32X_FINAL.7z
+https://www.mediafire.com/file/hlj4k6wgynjve7j/KOBO_CD32X_FINAL.7z/file
+
+Kobo32x_hw.zip
+https://www.mediafire.com/file/l9kb1nylarphs4f/kobo32x_hw.zip/file
+
+Tried to add saving to the SegaCD's memory but doesn't work.
+
+
+
+KOBO_DELUXE with bin/cue
+Standalone for the SEGA CD32X Kega Fusion Emulator 
+https://www.mediafire.com/file/310397lqxp2b98m/KOBO_DELUXE.7z/file
+
+Copy the folder "kobo32x" to: \sega-toolchain-12.1\sega\
+To setup a new standalone project, use once "new_setup.sh" to copy required files.
+To build use the included script: ./build.sh
+
+CDROMPlayer_mixed.cue/bin are in compiled into the: subcpu folder.
+
+Folder name changes.
+subcpu = Demo
+sh2 = d32xr-master
+
+
+
+
