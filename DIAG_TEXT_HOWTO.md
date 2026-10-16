@@ -1,6 +1,6 @@
 # Instructions: turn on the green and white boot diagnostics (CD32X)
 
-For any game that uses the OpenLara CD32X boot stack (Sega CD + 32X + RAM cart).
+For any game that uses the CD32X boot stack (Sega CD + 32X + RAM cart).
 Follow exactly. Change nothing else.
 
 ## Rules
