@@ -119,8 +119,12 @@ for all of them.
 
 1. **The 4 MB RAM cart first.** Burn Sonic's R4G disc.
    - At the title start it sends the page command twice (window 1 to page 0, back to page 1).
-   - Options Menu → `BIG CART` (A) runs the cart test. It must read `CART TEST: NO PAGE MAPPER / (A 4 MB CART) -
-     NOTHING WRITTEN`.
+   - Options Menu → `BIG CART` (A) runs the cart test: two more page commands, then (no mapper found) the **slot
+     command**. The 256 KB test file goes to the first free 128 KB slot after page 0's scene image, below the data
+     pack at `0x300000` (from the title: slot 19, cart `0x260000`). Each 32 KB chunk is read back by the Sub-CPU, then
+     all of them by the SH2. The file's own slot (16, `0x200000`) must not show them. It must read
+     `CART TEST: NO PAGE MAPPER (4 MB) / SLOT 19 LOAD OK (SUB-CPU AND SH2)`. **Both new cases then ran on the
+     console.** (Added 19 Oct, after this doc was first posted.)
    - Then the game must play exactly as R4D (loads, saves, music).
    - This answers **"does the 4 MB cart ignore an even-byte write to 0xA130F2"**. Sonic's own question: whether the
      4 MB cart (v01) uses /TIME at all. The 16 MB repo has only v01's edge connector, where B31 is a named net.
