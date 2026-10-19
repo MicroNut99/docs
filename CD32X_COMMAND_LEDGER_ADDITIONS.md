@@ -102,3 +102,37 @@ command numbers.
 
 Free: 11, 12, 14, 15. (OpenLara CD32X used `0x3F0000` settings and `0x3F0400` saved game -
 inside piece 0; it and OpenJazz share the cart only one at a time.)
+
+## 6. The Kobo stack (Sonic CD 2011 CD32X): its numbers, and the paging cases
+
+Sonic CD 2011 CD32X runs on the **Kobo boot path**, not on this ledger's stack:
+- Sub-CPU `cd32x/sub_main.c`;
+- 68000 listener `cd32x/kobo/hw_md.s`: routines 1-34 as the ledger PDF, and **`MD_CMD_END` = 35** (no `start_d32xr`
+  there);
+- SH2 boot loader `cd32x/sh2_engboot.c`.
+
+Its SH2 commands are recorded here the way section 4 records OpenTyrian's, so code moved between the stacks can be
+checked. Design and status: [CD32X_PAGING_SONICCD.md](CD32X_PAGING_SONICCD.md).
+
+| CMD | Meaning on the Kobo stack (Sonic) | Same as this stack? |
+|---|---|---|
+| 38 | open file (length → COMM8). The file number picks the file and its 128 KB cart slot (`cur_img`): 16 `KOBOGFX.BIN` → slot 16, 21 `SONICCD.PAK` → 0, 22 `SCDDATA.PAK` → 24, `0x100`-`0x4FF` scene images → 4, `0x1100`-`0x14FF` act files → 28 | open: yes; the file numbers are Sonic's |
+| 44 | clear the Genesis planes | yes |
+| 45 / 54 | play CD track / stop | yes |
+| **46** | chunk → cart, with three forms selected by COMM2: **a)** `0x00nn` one chunk, read back by the Sub-CPU (reply COMM12); **b)** `first \| more << 8` (`0x0100`-`0x03FF`) a run of up to 4 chunks in one CD read; **c)** two cases added for the 8 / 16 MB cart, see below | **no:** this stack's bit 15 means "no read-back"; on the Kobo stack `0x8000`+ is not a read-back flag |
+| **47** | cart → frame buffer (`CMD_CART_TO_FB`: COMM2 = slot << 8 \| chunk) | **no:** here 47 is chunk compare |
+| 48 | pad | yes |
+| 50 / 51 | file chunk → frame buffer | yes |
+| 52 | Genesis display on / off | yes |
+| 53 | load a sound bank: COMM2 = bank (0 `KOBOSFX.BIN`, n `SFXn.BIN`) | load sound pack; the bank number is Sonic's |
+| 56 / 59, 57 / 58 | backup RAM load / save, word get / put | yes |
+| **68** | **act file → Genesis planes** (`SGB_CMD`: COMM2 = op, COMM8 = the file's cart offset) | **no:** the paging proposals take 68 for window 1's page on this stack |
+
+Not on the Kobo stack: 60, 61 (no cart save area: Sonic saves to the backup RAM), 62-67.
+
+**The two paging cases inside command 46** (`sub_main.c`, 23 lines against Sonic's R4D; no new SH2 or MD number):
+
+| COMM2 | What it does | Reply | Status |
+|---|---|---|---|
+| `0xF800 \| window << 8 \| page` | the page byte into Word RAM, then MD 26 `SAFE_CART_XFER` (interrupts off, RV = 1) copies it to `0xA130F0` (window 0) or `0xA130F2` (window 1): one even-byte /UWR write, the page on D8-D10 | COMM12 = 0 | **run on the console** (Sega CD + 32X + 4 MB RAM cart, 19 Oct 2026): the disc booted, the command was answered twice, the 4 MB cart showed no effect. A real page switch is untested (it needs the 8 / 16 MB board) |
+| `0xF000 \| slot` (0-31) | the file command 38 opened goes to 128 KB slot `slot` (`cur_img`) until the next command 38 | COMM12 = 0 | sh2emu only; the 4 MB cart test that runs it on the console is in Sonic's current R4G build |
