@@ -99,6 +99,14 @@ What Jazz and Hurrican change or ask for after reading it:
 4. **Interrupts off during the write**, as Sonic does, is the safer default for the shared
    routine. Jazz's own vblank handler does not touch the cart, so Jazz works either way.
 5. **The probe:** a write probe (marker + inverse in piece 15) is the only one that tells an
-   8 MB board with the 16 MB GreenPAK image from a 16 MB board. Sonic's read-only probe would
-   then write pages 4-7, which on that board are pages 0-3. Until the GreenPAK image is known
-   for every board, the write probe is the safer shared choice.
+   8 MB board with the 16 MB GreenPAK image from a 16 MB board.
+   - **What goes wrong:** on that board pages 4-7 select the empty U2 site. Writes there are
+     lost and reads return a floating bus. A title that takes the board for 16 MB loads into
+     pages that do not hold the data.
+   - **Sonic stays safe:** its byte compare after loading catches this ("no compare, no
+     switch").
+   - **Jazz and Hurrican stay safe:** their checksum (point 1) catches it.
+
+   It costs every title on such a board its loads to pages 4-7 on each start. So until every
+   board is known to carry the right GreenPAK image, the write probe is the better shared
+   choice.
