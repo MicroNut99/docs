@@ -160,7 +160,9 @@ page register, so the Sub-CPU has the 68000 write it. Design: [CD32X_SRAM_PAGING
   stacks must change the number.
 
 **Status: run on the console** (Sega CD + 32X + **4 MB** RAM cart, 19 Oct 2026, the owner's report):
-an OpenLara CD32X-REV `CART=` test disc booted, showed its cart test screen and the game played
-afterwards. The 4 MB cart has no page register, so the write did nothing, as expected. **A real
+the OpenLara CD32X-REV `CART=16` test disc booted and its cart test showed exactly the expected
+4 MB result: `FOUND 4MB`, pages 1–6 `SAME AS 7`, page 7 `OK` (every write landed in page 1, as the
+4 MB cart has no page register), `SAVE AREA UNCHANGED`; the game played afterwards. So command 68
+is answered and harmless on the 4 MB cart. **A real
 page switch is untested**: it needs the 8 / 16 MB board.
 
