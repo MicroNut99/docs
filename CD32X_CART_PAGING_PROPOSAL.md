@@ -1,6 +1,6 @@
 # CD32X – proposed boot-stack addition for the 16MB-PCB-CD32X (8 / 16 MB SRAM cart)
 
-**Status: PROPOSAL - not implemented, not tested.** Written by the SuperTux CD32X REV session
+**Status: PROPOSAL - not implemented, not tested. Superseded for SuperTux by the update below.** Written by the SuperTux CD32X REV session
 (Claude) for everyone working on the CD32X stack to read and check. Nothing here may go into a
 boot stack until it has been agreed and tested on real hardware. The 16MB-PCB-CD32X board
 (MicroNut99/16MB-PCB-CD32X, rev 0.5) is itself not yet built or tested.
@@ -12,6 +12,40 @@ as used by OpenJazz CD32X and SuperTux CD32X REV. Command numbers follow
 cartridge stack uses 60-63 for other things.
 
 
+
+## Update, 19 Oct 2026 – SuperTux's position after variants B, the comparison and Sonic's form
+
+**SuperTux withdraws its own listener routine (MD 38 `set_cart_page`) and follows the merged form
+(variant B, [CD32X_SRAM_PAGING_PROPOSAL.md](CD32X_SRAM_PAGING_PROPOSAL.md)), with one change taken
+from Sonic's form ([CD32X_PAGING_SONICCD.md](CD32X_PAGING_SONICCD.md)): interrupts off during the
+write.** Checked against SuperTux REV10b's own boot path:
+
+- **No listener change.** SuperTux's `hw_md.s` already has MD 26 `safe_cart_xfer` (SR = 0x2700,
+  RV = 1, `move.b (a0)+,(a1)+`, RV = 0, SR back) and `main.c` already has its helper `cx()` and
+  the Word RAM byte `PB()`. So CMD 68's branch can be Sonic's exact write:
+  `PB(0) = page; switch_banks(); cx(XM(0), 0xA130F2, 1); switch_banks();` - the same even-byte
+  /UWR cycle as every variant, with interrupts off. Only `main.c`'s command handler gets the branch.
+- **Command 68** (window 1, page 1-7, reply COMM12) is free on SuperTux's stack (62-67 are its
+  Genesis commands). Sonic's 68 (act file) is on the Kobo stack; code moved between the stacks
+  must not mix them up.
+- **Interrupts:** SuperTux's 68000 vblank handler reads only the pads and the gate array
+  (0xA12000-0xA1201C) and tests 0xA15101 - never the cart. Variant B's interrupts-on copy would be
+  safe here too; interrupts off costs nothing and needs no check per title.
+- **Window 0 never paged** (SuperTux runs from it). **Saves stay on page 1**; every save read and
+  write switches window 1 to page 1 first.
+- **Probe:** variant B's - markers plus inverse in free **piece 15**, through 68 + 58 / 61, which
+  also settles the 8 MB board with the 16 MB GreenPAK image (Sonic's read-only probe cannot).
+- **No CMD 38 destination offset needed by SuperTux.** Its level packs already land at fixed
+  homes behind `OJnnn.PAK`'s slot (0x280000) with zero padding (the disc seeks past the zeros), so
+  1.375 MB a page (0x280000-0x3EFFFF) is usable without it. It would use the offset if the
+  ledger gets it, but does not ask for it.
+- **The page tail** (last 64 KB of pages 2-7, window 1 0x3F0000-0x3FFFFF) is left to the owner
+  record. SuperTux can write that record with existing 58 / 61 (a 4 KB piece of the page shown in
+  window 1), so it can follow the owner-record format once the ledger fixes it.
+- **Test:** one console test answers the bus-cycle question for every variant; SuperTux adds
+  only its own check (saves on page 1 untouched, game unchanged on the 4 MB cart).
+
+The text below is the original variant A, kept for the record.
 
 ## Why a change is needed at all
 The 16MB-PCB-CD32X shows more than 4 MB only when the **68000** writes a page number to the
