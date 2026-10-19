@@ -1,0 +1,324 @@
+# Official SEGA Documentation Index
+
+This directory contains official SEGA development documentation for Genesis/Mega Drive and 32X development.
+
+## Hardware Manuals
+
+### 32X Hardware Manual (90 pages)
+**File:** `32XUSHardwareManual.pdf`
+
+Complete 32X hardware reference including:
+- SH2 CPU specifications
+- Memory maps (ROM, SDRAM, frame buffers)
+- VDP modes (Direct Color, Packed Pixel, Run Length)
+- Communication registers (COMM0-COMM7)
+- PWM sound system
+- Hardware bugs and workarounds
+
+**Key for:** 32X-specific development, SH2 programming, multi-CPU coordination
+
+---
+
+### SH7604 Hardware Manual — Hitachi (600+ pages)
+**File:** `SH7604_Hardware_Manual.pdf`
+
+Definitive CPU datasheet for the SH2 processor (SH7604) used in the 32X:
+- Section 2: CPU registers, instruction set, addressing modes, opcode map
+- Section 4: Exception handling, interrupt vectors, priority order
+- Section 5: Interrupt Controller (INTC) — priority registers, IRL sampling, response time
+- Section 7: Bus State Controller — SDRAM burst reads/writes, wait states, bus arbitration, Master/Slave coordination
+- Section 8: Cache — CCR register, cache-through access, coherency, two-way mode, associative purges
+- Section 9: DMAC — DMA controller registers, transfer modes, channel priority
+- Section 10: Division Unit (DIVU)
+- Section 11: Free-Running Timer (FRT) — used in SH2 interrupt bug workaround
+- Section 12: Watchdog Timer (WDT)
+- Section 13: Serial Communication Interface (SCI)
+
+**Key for:** SH2 instruction cycle counts, interrupt latency, cache behavior, bus timing, DMAC configuration
+
+---
+
+### SH-1/SH-2 CPU Core Programming Manual — Hitachi
+**File:** [sh1-sh2-cpu-core-architecture.md](sh1-sh2-cpu-core-architecture.md)
+
+Official Hitachi programming manual for the SH-1/SH-2 CPU core:
+- Section 2: Register configuration (general, control, system registers)
+- Section 4: Instruction features, addressing modes, instruction formats
+- Section 5: Complete instruction set by category
+- Section 6: Full instruction descriptions (all ~70 mnemonics with operations)
+- Section 7: Pipeline operation — execution state counts, IF/MA contention, slot timing
+- Appendix A: Opcode map — 16-bit instruction encoding/decoding tables
+- Appendix B: Pipeline contention patterns
+- SH2-only instructions flagged: BF/S, BT/S, BRAF, BSRF, DT, DMULS.L, DMULU.L, MUL.L, MAC.L
+
+**Key for:** SH2 instruction encoding/decoding, dc.w→mnemonic translation verification, pipeline optimization, MAC instruction cycle counts
+
+---
+
+### Motorola 68000 Programmer's Reference Manual
+**File:** [motorola-68000-programmers-reference.md](motorola-68000-programmers-reference.md)
+
+Complete 68000 programming reference:
+- Instruction set (all mnemonics with encoding, condition codes, timing)
+- Addressing modes and effective address encoding
+- Exception processing model
+- Instruction format details and operation code map
+
+**Key for:** 68K dc.w→mnemonic translation, instruction encoding verification, addressing mode identification
+
+---
+
+### Genesis Technical Overview (120 pages)
+**File:** `GenesisTechnicalOverview.pdf`
+
+Comprehensive Genesis/Mega Drive hardware specifications:
+
+**CPU & Memory:**
+- 68000 @ 7.67 MHz (main CPU)
+- 1 MByte ROM area (expandable with bank switching)
+- 64 KByte RAM area
+
+**VDP (Video Display Processor):**
+- Dedicated video display processor
+- Controls playfield & sprites
+- Character-based rendering
+- 64 KBytes VRAM (Video RAM)
+- 64 × 9-bit CRAM (Color RAM)
+- 40 chars × 28 chars display (320×224 pixels)
+- 3 planes: 2 scrolling playfields + 1 sprite plane
+- Definable priorities between planes
+- 512 possible colors (3 bits RGB)
+- 4 palettes of 16 colors on-screen
+
+**Z80 Sound System:**
+- Z80 @ 4 MHz
+- Controls PSG & FM chips
+- 8 KBytes dedicated Sound RAM
+
+**DMA:**
+- Removes 68000 from bus
+- Can move 205 bytes/scanline during VBLANK (30 scanlines)
+- Can move 7380 bytes during VBLANK
+
+**Interrupts:**
+- Horizontal & Vertical interrupts available
+
+**Key for:** Understanding Genesis base system, VDP programming, memory architecture
+
+---
+
+## System Overview
+
+### Genesis 32X US Overview (35 pages)
+**File:** [genesis-32x-overview.md](genesis-32x-overview.md)
+
+Official SEGA of America 32X overview document (April 1994) containing:
+- System features and hardware specifications
+- SH2 memory map with cached/cache-through address pairs:
+  - CS0: Boot ROM ($00000000/$20000000), SYS REG ($00004000/$20004000), VDP REG ($00004100/$20004100)
+  - CS1: Cartridge ROM ($02000000/$22000000)
+  - CS2: Frame Buffer DRAM ($04000000/$24000000), Over Write Image ($04020000/$24020000)
+  - CS3: SDRAM ($06000000/$26000000, 256KB)
+- MD memory map (ADEN=0 and ADEN=1 modes), ROM banking
+- Complete SYS REG definitions (both MD and SH sides)
+- VDP register definitions, display modes, frame buffer control
+- DRAM (frame buffer) map: line table at $0000, pixel data at $0200
+- Auto Fill function (256-word page units, 7+3×Length cycles)
+- Communication port details ($A15120-$A1512E / $4020-$402E)
+- DMA/DREQ configuration and FIFO usage
+- Access time tables (ROM, Frame Buffer, SYS REG, VDP REG, Boot ROM)
+- PWM sound driver specifications
+- Development tools overview
+
+**Key for:** SH2 memory map quick reference, access timing, register definitions, frame buffer programming
+
+---
+
+## Software Development Manuals
+
+### Genesis Software Development Manual V2.0 (26 pages)
+**File:** `Genesis_Software_Development_Manual_Version_2.0_1991-07-09.pdf`
+**Date:** July 9, 1991
+
+Official SEGA software development guide covering:
+- Required cartridge ROM header format
+- Initial program setup
+- External RAM information
+- I/O modem information
+- Checksum calculation
+- VDP setup data
+- Compatibility settings for Genesis development
+- 68000 commands and peripheral devices
+- Joystick and peripheral device handling
+- Software development precautions:
+  - Z80 bus access rules
+  - H_INT and V_INT usage in Genesis programs
+  - Interrupt handling during communication
+  - Control register (A/B screens) precautions
+  - Main program and Z80 bus request precautions
+  - Sound access precautions
+  - Reset button handling
+  - Control pad and read-program notes
+- Notes on Mega Drive Europe version (PAL)
+- Vertical 30-cell mode
+- Backup RAM notes
+
+**Key for:** ROM header requirements, peripheral I/O, development best practices
+
+---
+
+### Sega Genesis Software Manual (159 pages)
+**File:** `SegaGenesisSoftwareManual_1990-02-06.pdf` → [sega-genesis-software-manual.md](sega-genesis-software-manual.md)
+**Date:** February 6, 1990 (earlier comprehensive version)
+
+Comprehensive Genesis/Mega Drive software development reference covering:
+- Memory maps (68000 address space, Z80 area, I/O registers)
+- VDP (315-5313) complete reference: registers, scroll planes, sprites, priority system
+- Color palette, shadow/highlight mode, interlace mode
+- System I/O: controller ports, serial communication
+- VRAM mapping and access methods
+- ROM cartridge data format and checksum program
+- Genesis Sound Software Manual (FM + PSG)
+- YM-2612 / YM3438 FM sound source complete register reference
+- PSG (SN76489) documentation
+- YM3438/YM2612 Application Manual and electrical characteristics
+- Genesis Technical Bulletins #11-#14
+
+**Key for:** Complete Genesis software development reference, VDP programming, sound programming
+
+---
+
+## Technical Bulletins
+
+### Genesis Technical Bulletins (83 pages)
+**File:** `GenesisTechnicalBulletins.pdf`
+
+Official SEGA technical bulletins with errata, corrections, and development tips:
+
+**Bulletin #1 (March 13, 1991):**
+- Subject: ERRORS WITHIN THE MICROTEC EXAMPLES
+- Corrections to asm68k command syntax
+- Link command corrections
+- C compiler documentation corrections ('STRINGSINTEXT' vs 'STRINTEXT')
+
+**Bulletin #2 (June 19, 1990):**
+- Subject: GENESIS LOADER BOARD
+- Hardware modifications to prevent loading errors
+- Resistor and jumper wire requirements
+- Circuit board diagram with modifications
+
+*Additional bulletins present - full list TBD*
+
+**Key for:** Known issues, errata corrections, hardware workarounds
+
+---
+
+## Assembler Documentation
+
+### SNASM68K Console and Z80 Notes (4 pages)
+**File:** `SNASM68K_Console_and_Z80_Notes.pdf`
+
+Official SEGA assembler (SNASM68K) syntax and usage notes:
+
+**SNASM68K Specifics:**
+- Power supply requirements (240V 50Hz for overseas, 9V 1A PSU for UK)
+- Installation instructions
+- Interface unit connection (68000 socket on target system)
+- Ribbon cable connection (PC to Console interface)
+- SCSI cable for Console interface with RAM/EPROM emulation
+- 1Mb static RAM for EPROM emulation
+- 32K battery-backed RAM for link software
+- Main RAM mapping at $200000 (1Mb static)
+- Write-protect LED indicators
+- Front panel switch for main unit control
+- Startup file: `startup.68k` (sets up 68000 vectors)
+- Exception handling via `except.68k`
+- Debug services callable from code (16 bytes into interface workspace)
+- Register conventions for service calls (D0=service number, D1-D2=parameters)
+- Status register manipulation flags
+- KeepTraps variable control
+- Pure binary mode for final ROM image generation
+- Initial register values set via REGS directive
+- Configuration file: `snbug658.cf?` (memory range definitions)
+- DIP switches for RAM addressing and SCSI ID
+
+**Z80 Assembler Notes:**
+- Fully functional Z80 assembler (no linking support yet)
+- Mostly same syntax as 68000 assembler
+- Exceptions:
+  - Local labels: `@` prefix (changed with `/l` switch to `$`)
+  - PC value: `$` and `*` both valid
+  - Hex numbers: trailing `H` or prefix `#` (hash)
+  - Binary numbers: trailing `B`
+- Extended features:
+  - Abbreviations: `EX AF,AF` → `EXAF`, `JR NZ` → `JNZ`
+  - `PUSH`/`POP` take multiple registers
+  - Can omit initial `A` in `ADD`, `ADC`, `SBC`
+  - `Opt hd64180+` enables extra 64180 instructions
+- Only `DB` and `DW` directives for data (not DC)
+- Binary output: `snasmz80 /p prog.z80,z80prog.bin`
+
+**Key for:** Understanding official SEGA assembler syntax, proper development tool usage
+
+---
+
+## Quick Reference
+
+### For 68K Assembly Translation Work:
+1. **Motorola 68000 Programmer's Reference** - Instruction encodings, addressing modes, opcode map
+2. **Genesis Technical Overview** - Hardware register addresses, VDP specs
+3. **Genesis Software Manual** - ROM header format, development practices
+4. **SNASM68K Notes** - Official assembler syntax
+
+### For SH2 Assembly Translation Work:
+1. **SH-1/SH-2 CPU Core Programming Manual** - Instruction encodings, opcode map, pipeline timing
+2. **SH7604 Hardware Manual** - Peripheral registers, cache, DMAC, bus controller
+
+### For 32X Development:
+1. **32X Hardware Manual** - Complete 32X hardware reference
+2. **Genesis 32X US Overview** - System overview, SH2 memory map, register definitions, access timing
+3. **Genesis Technical Overview** - Base Genesis system understanding
+
+### For Debugging Issues:
+1. **Technical Bulletins** - Known errata and workarounds
+2. **Software Manual** - Development precautions and best practices
+
+---
+
+## Markdown Conversions
+
+The following PDFs have been converted to version-controlled markdown files:
+
+| PDF Source | Markdown File | Size |
+|-----------|---------------|------|
+| 32XUSHardwareManual.pdf | [32x-hardware-information.md](32x-hardware-information.md) | - |
+| 32X_Introduction_and_System_Features.pdf | [32x-introduction-and-system-features.md](32x-introduction-and-system-features.md) | - |
+| Genesis32XUSOverview.pdf | [genesis-32x-overview.md](genesis-32x-overview.md) | - |
+| Genesis_Software_Development_Manual...pdf | [genesis-software-development-manual.md](genesis-software-development-manual.md) | - |
+| GenesisTechnicalBulletins.pdf | [genesis-technical-bulletins.md](genesis-technical-bulletins.md) | - |
+| GenesisTechnicalOverview.pdf | [genesis-technical-overview.md](genesis-technical-overview.md) | 109 KB |
+| SH7604_Hardware_Manual.pdf | [sh7604-hardware-manual.md](sh7604-hardware-manual.md) | 582 KB |
+| SegaGenesisReferenceSheets...pdf | [sega-genesis-reference-sheets.md](sega-genesis-reference-sheets.md) | - |
+| SNASM68K_Console_and_Z80_Notes.pdf | [snasm68k-console-z80-notes.md](snasm68k-console-z80-notes.md) | - |
+| The_Sega_Development_System_(Accolade).pdf | [sega-development-system-accolade.md](sega-development-system-accolade.md) | - |
+| Interim_Release_Notes.pdf | [interim-release-notes-accolade.md](interim-release-notes-accolade.md) | - |
+| HM65256B_datasheet.pdf | [hm65256b-datasheet.md](hm65256b-datasheet.md) | - |
+| M27C322.pdf | [m27c322-datasheet.md](m27c322-datasheet.md) | - |
+| MB838200B.pdf | [mb838200b-datasheet.md](mb838200b-datasheet.md) | - |
+| IC_BD_16M_42PIN_EPROM.pdf | [ic-bd-16m-42pin-eprom-manual.md](ic-bd-16m-42pin-eprom-manual.md) | - |
+| IC_BD_32M_SRAM.pdf | [ic-bd-32m-sram-manual.md](ic-bd-32m-sram-manual.md) | - |
+| IC_BD_4M_32PIN.pdf | [ic-bd-4m-32pin-eprom-manual.md](ic-bd-4m-32pin-eprom-manual.md) | - |
+
+| SegaGenesisSoftwareManual_1990-02-06.pdf | [sega-genesis-software-manual.md](sega-genesis-software-manual.md) | 168 KB |
+| SH-1/SH-2 Programming Manual (Hitachi) | [sh1-sh2-cpu-core-architecture.md](sh1-sh2-cpu-core-architecture.md) | 165 KB |
+| Motorola 68000 Programmer's Reference | [motorola-68000-programmers-reference.md](motorola-68000-programmers-reference.md) | 120 KB |
+
+## Integration with Existing Documentation
+
+These PDFs and markdown conversions complement the pre-existing markdown documentation:
+- `development-guide.md` - 32X development guide
+- `32x-hardware-manual.md` - 32X hardware manual (markdown version)
+- `32x-hardware-manual-supplement-2.md` - SH2 interrupt bug errata
+- `32x-technical-info.md` - Hardware bugs and workarounds
+- `32x-technical-info-attachment-1.md` - VRES/RV bit corrective programs
+- `sound-driver-v3.md` - Sound Driver V3.00 system calls
