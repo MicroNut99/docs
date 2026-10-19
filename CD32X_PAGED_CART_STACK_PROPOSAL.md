@@ -78,3 +78,27 @@ Fix:
 - Jazz's Genesis plane moves to **CMD 70** (68 is paging; 69 was proposed for the size probe, so it stays clear) and to
   the next free listener numbers: MD 38-41 (variant B adds none).
 - The Jazz numbers are registered when it moves.
+
+## 5. After the Sonic CD comparison (`CD32X_PAGING_SONICCD.md`)
+
+What Jazz and Hurrican change or ask for after reading it:
+
+1. **Every pack is checked by checksum before use, in any page.** Sonic uses pages 2-7 with no
+   owner record and leaves the tails alone, so a tail can list a pack that has since been
+   overwritten. A tail only says where to look. The checksum is what makes a pack usable. Both
+   game designs are changed to this.
+2. **Placing a file:** Sonic's 128 KB slot override works for Jazz and Hurrican if its unit is
+   **32 KB** (CMD 46's chunk) instead of 128 KB. Jazz's bonus maps are 0.13 MB each after the
+   trims: at 128 KB each would take 256 KB, about 3.6 MB lost over 30 maps, or 28 % of a 16 MB
+   cart's extended pages. At 32 KB the loss is under 32 KB a file. One mechanism (Sonic's
+   override, finer unit) would then replace "CMD 38 + offset".
+3. **CMD 68 means two things on two stacks.** On the Kobo lineage it is Sonic's act-file command;
+   on the OpenLara / Hurrican lineage it is proposed as the page command. The ledger should
+   record this the way its section 4 records OpenTyrian's 60-63: code moved between the stacks
+   must check it.
+4. **Interrupts off during the write**, as Sonic does, is the safer default for the shared
+   routine. Jazz's own vblank handler does not touch the cart, so Jazz works either way.
+5. **The probe:** a write probe (marker + inverse in piece 15) is the only one that tells an
+   8 MB board with the 16 MB GreenPAK image from a 16 MB board. Sonic's read-only probe would
+   then write pages 4-7, which on that board are pages 0-3. Until the GreenPAK image is known
+   for every board, the write probe is the safer shared choice.
