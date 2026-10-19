@@ -76,8 +76,9 @@ The ledger PDF's 68000 list ends at 34 `SET_VDP_REG`, 35 `END`. The current list
 | 60 | D32X: start D32XR from the cart (never returns) |
 | 61 | save area: 4 KB piece → cart 0x3F0000 + COMM2 × 4 KB; reply COMM12 |
 | **62–67** | **the Genesis picture (section 1)** |
+| **68** | **cart page, window 1 (section 7)**: 8 / 16 MB SRAM cart, OpenLara CD32X-REV test builds |
 
-Free: 39–43, 49, 55, 68 and up.
+Free: 39–43, 49, 55, 69 and up.
 
 ## 4. Numbers that mean something else on the cartridge stack (OpenTyrian, `cart_md.s`)
 
@@ -99,8 +100,9 @@ command numbers.
 | 5-9 | 0x3F5000-0x3F9FFF | Holiday Hare '95 (OpenJazz CD32X) |
 | 10 | 0x3FA000 | OpenJazz CD32X port settings (J19) |
 | 13 | 0x3FD000 | **SuperTux CD32X REV5**: options, high scores, 7 game slots ("STX2", 368 bytes) |
+| 15 | 0x3FF000 | **Cart test scratch** (OpenLara CD32X-REV `CART=` builds): a 4 KB test pattern per page, written and read back at every start of a test disc. Never holds data worth keeping; a game must not store anything here |
 
-Free: 11, 12, 14, 15. (OpenLara CD32X used `0x3F0000` settings and `0x3F0400` saved game -
+Free: 11, 12, 14. (OpenLara CD32X used `0x3F0000` settings and `0x3F0400` saved game -
 inside piece 0; it and OpenJazz share the cart only one at a time.)
 
 ## 6. The Kobo stack (Sonic CD 2011 CD32X): its numbers, and the paging cases
@@ -126,7 +128,7 @@ checked. Design and status: [CD32X_PAGING_SONICCD.md](CD32X_PAGING_SONICCD.md).
 | 52 | Genesis display on / off | yes |
 | 53 | load a sound bank: COMM2 = bank (0 `KOBOSFX.BIN`, n `SFXn.BIN`) | load sound pack; the bank number is Sonic's |
 | 56 / 59, 57 / 58 | backup RAM load / save, word get / put | yes |
-| **68** | **act file → Genesis planes** (`SGB_CMD`: COMM2 = op, COMM8 = the file's cart offset) | **no:** the paging proposals take 68 for window 1's page on this stack |
+| **68** | **act file → Genesis planes** (`SGB_CMD`: COMM2 = op, COMM8 = the file's cart offset) | **no:** on this stack 68 is window 1's cart page (section 7). The Kobo stack pages with command 46 `0xF8nn` instead |
 
 Not on the Kobo stack: 60, 61 (no cart save area: Sonic saves to the backup RAM), 62-67.
 
@@ -136,3 +138,29 @@ Not on the Kobo stack: 60, 61 (no cart save area: Sonic saves to the backup RAM)
 |---|---|---|---|
 | `0xF800 \| window << 8 \| page` | the page byte into Word RAM, then MD 26 `SAFE_CART_XFER` (interrupts off, RV = 1) copies it to `0xA130F0` (window 0) or `0xA130F2` (window 1): one even-byte /UWR write, the page on D8-D10 | COMM12 = 0 | **run on the console** (Sega CD + 32X + 4 MB RAM cart, 19 Oct 2026): the disc booted, the command was answered twice, the 4 MB cart showed no effect. A real page switch is untested (it needs the 8 / 16 MB board) |
 | `0xF000 \| slot` (0-31) | the file command 38 opened goes to 128 KB slot `slot` (`cur_img`) until the next command 38 | COMM12 = 0 | sh2emu only; the 4 MB cart test that runs it on the console is in Sonic's current R4G build |
+
+## 7. SH2 → Sub-CPU command 68: cart page, window 1 (OpenLara CD32X-REV)
+
+For the paged 8 / 16 MB SRAM cart (MicroNut99/16MB-PCB-CD32X): the SH2s can't reach the cart's
+page register, so the Sub-CPU has the 68000 write it. Design: [CD32X_SRAM_PAGING_PROPOSAL.md](CD32X_SRAM_PAGING_PROPOSAL.md)
+(variant B); code: MicroNut99/OpenLaraCD32X-REV, branch `cart-test-8mb-16mb` (`subcpu/main.c`,
+`CART-1`).
+
+| CMD | Name | COMM2 | Reply | How |
+|---|---|---|---|---|
+| 68 | cart page, window 1 | page 1–7 (page 0 refused: the program and resident data stay in window 0) | COMM12 = 1 done / 0 refused | page byte → Word RAM, `switch_banks`, then the existing 68000 routine **26 `safe_cart_xfer`** (interrupts off, RV = 1) copies it to **`0xA130F2`**: one even-byte /UWR write, the page on D8–D10 |
+
+- **No new 68000 routine.** `hw_md.s` is unchanged, and so are the boot block, CDLOADER, `crt0.s`
+  and `src-md/`. Nothing sends 68 during boot.
+- **Compiled only in the test builds:** `CART=8` / `CART=16 bash build.sh` (`OL_CART_MB`, passed to
+  `main.c` through `HWFLAGS`). Without `CART` the Sub-CPU has no command 68.
+- **The SH2 side:** after 68, clear both SH2 caches. Settings and saves stay on page 1 (cart
+  0x3F0000), so put window 1 back on page 1 before using the save area (CMD 58 / 61).
+- **The same write on the Kobo stack** is command 46 `0xF8nn` (section 6). Code moved between the
+  stacks must change the number.
+
+**Status: run on the console** (Sega CD + 32X + **4 MB** RAM cart, 19 Oct 2026, the owner's report):
+an OpenLara CD32X-REV `CART=` test disc booted, showed its cart test screen and the game played
+afterwards. The 4 MB cart has no page register, so the write did nothing, as expected. **A real
+page switch is untested**: it needs the 8 / 16 MB board.
+
