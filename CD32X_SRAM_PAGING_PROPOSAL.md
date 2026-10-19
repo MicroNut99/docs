@@ -10,7 +10,9 @@ is how much of the stack changes.
 ## 1. The difference in one line
 Variant A adds a 68000 listener routine (`set_cart_page`, MD_CMD 38). **Variant B leaves
 `hw_md.s` byte for byte** and writes the page register with the listener's existing
-`chilly_rv_memcpy` (MD_CMD 33), the routine every cart load and save already uses.
+`safe_cart_xfer` (MD_CMD 26): RV = 1 **and interrupts off** around a byte copy. SonicCD2011 uses
+the same routine (see [CD32X_PAGING_SONICCD.md](CD32X_PAGING_SONICCD.md)); rev 1 of this proposal
+used 33 `chilly_rv_memcpy`, which leaves interrupts on.
 
 Why it matters:
 - **The rule:** the boot stack stays unedited. With B the 68000 listener is identical in every
@@ -30,7 +32,7 @@ else if (cmd == 68) {
         volatile uint8_t *wr = (volatile uint8_t *)0x0C0000;
         wr[0] = (uint8_t)page;                         /* the byte, in Word RAM */
         switch_banks();                                /* Word RAM -> 68000 (0x200000) */
-        do_md_cmd3(MD_CMD_CHILLY_RV_MEMCPY, 0xA130F2, 0x200000, 1);
+        do_md_cmd3(MD_CMD_SAFE_CART_XFER, 0x200000, 0xA130F2, 1);   /* src, dst, bytes */
         switch_banks();
     }
     do_md_cmd2(MD_CMD_WRITE_32X_16, 0xA1512C, ok);
@@ -38,10 +40,10 @@ else if (cmd == 68) {
 }
 ```
 
-- **What the 68000 does:** `chilly_rv_memcpy(dst, src, len)` sets RV, copies `len` bytes with
-  `move.b d1,(a1)+`, clears RV. With dst = 0xA130F2 (even) and len = 1 that's one even-byte write:
-  /UWR with the page on D8–D10. That's exactly what the board latches, the same bus cycle as
-  variant A's `move.b d0,(a0)`.
+- **What the 68000 does:** `safe_cart_xfer(src, dst, len)` saves SR, sets interrupts off
+  (`0x2700`) and RV, copies `len` bytes with `move.b (a0)+,(a1)+`, clears RV and restores SR. With
+  dst = 0xA130F2 (even) and len = 1 that's one even-byte write: /UWR with the page on D8–D10.
+  That's exactly what the board latches, the same bus cycle as variant A's `move.b d0,(a0)`.
 - **Same Word RAM handover** as CMD 46 and CMD 61 (`switch_banks()` around the 68000's copy).
 - **Not used during boot.** CMD 38, CMD 46 and the boot branch of CMD 38 (file 20) are unchanged.
   APP.BIN changes by this branch only.
