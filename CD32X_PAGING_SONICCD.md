@@ -190,6 +190,10 @@ for all of them.
 3. **Then the game's own use:** an act start with its preload, time warps without the disc, a power-off and on with
    the act still in the cart.
 
+**In ares with a 16 MB SRAM cart (the owner's ares build, 19 Oct 2026).** Sonic's R4H build: `BIG CART   16 MB` -
+the read-only probe found the 16 MB cart (window 1 switched to page 0 and to page 4, read by the SH2). The preload
+itself is being checked next.
+
 ## 7. Where Sonic's form differs from the merged form (variant B)
 
 | | Merged form (variant B) | Sonic R4E-R4G |
