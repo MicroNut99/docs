@@ -159,8 +159,10 @@ the round label stayed R4G -, `32X PAYLOAD: 5032 BYTES SH2-VR4...`, `SAFE CART: 
 with its bar, then the title (`PRESS START`). The title is where the game sends its first two page commands (the
 detection), so **the page command at every power-on did not stop the title on the 4 MB cart either.**
 
-Not shown yet: the game after the cart test. The menu's scene is loaded whole at the next load, which keeps a stale
-image from being trusted.
+The game on that disc: the owner reports "First level plays good" (19 Oct). (After the cart test the menu's scene is
+loaded whole at the next load, so no stale image is trusted.) **The 4 MB test burn is done:** the new boot stack boots
+and plays, and both new cases ran. What is left needs the 8 / 16 MB board: a real page switch, then the game's own use
+of the pages.
 
 **The steps (all games can use them):**
 
