@@ -154,8 +154,13 @@ What that proves:
 - **The page register case ran again** (two more page commands before the slot test), with the same result as
   before.
 
-Not shown by the photo: the game after the test. The menu's scene is loaded whole at the next load, which keeps a
-stale image from being trusted.
+The owner's videos of the same session show the power-on: the boot text as R4D's (`BUILD: SONIC CD R4G GAME START` -
+the round label stayed R4G -, `32X PAYLOAD: 5032 BYTES SH2-VR4...`, `SAFE CART: FOUND`, `32X GO!`), the loading picture
+with its bar, then the title (`PRESS START`). The title is where the game sends its first two page commands (the
+detection), so **the page command at every power-on did not stop the title on the 4 MB cart either.**
+
+Not shown yet: the game after the cart test. The menu's scene is loaded whole at the next load, which keeps a stale
+image from being trusted.
 
 **The steps (all games can use them):**
 
