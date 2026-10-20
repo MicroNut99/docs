@@ -194,6 +194,22 @@ for all of them.
 the read-only probe found the 16 MB cart (window 1 switched to page 0 and to page 4, read by the SH2). The preload
 itself is being checked next.
 
+## 6b. Sonic R4I: the warm start (a boot loader change, no new command) - sh2emu only, not yet in ares or on the console
+
+The battery keeps the cart, so Sonic's SH2 boot loader (`cd32x/sh2_engboot.c`, label `SH2-VR4I`) no longer re-reads
+what the cart already holds:
+1. It reads the data pack (`SCDDATA.PAK`, about 130 KB) first.
+2. The pack's preload table holds the disc's checksums of the engine (file 21, kind 3) and the title (0x100). They
+   are the Sub-CPU's `load_sum`, over the file padded to 2 KB.
+3. The loader runs its own `scd_cart_sum` over the engine's and the title's places in the cart. If a checksum
+   matches, that file is not read from the CD.
+4. Any mismatch, or no table, means a cold start exactly as before.
+
+It uses only commands 38 and 46. The engine then does the same for the menu (its own pages 6/7) and the act pages. In
+sh2emu, a second power-on with the cart kept read only the loading picture and the data pack from the disc; the title,
+the menu and Palmtree Panic 1 came from the cart. Any game with a battery-backed cart can do this in its own loader:
+it needs a table of checksums that is read from the disc every time.
+
 ## 7. Where Sonic's form differs from the merged form (variant B)
 
 | | Merged form (variant B) | Sonic R4E-R4G |
