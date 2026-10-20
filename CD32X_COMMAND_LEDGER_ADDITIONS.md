@@ -137,7 +137,7 @@ Not on the Kobo stack: 60, 61 (no cart save area: Sonic saves to the backup RAM)
 | COMM2 | What it does | Reply | Status |
 |---|---|---|---|
 | `0xF800 \| window << 8 \| page` | the page byte into Word RAM, then MD 26 `SAFE_CART_XFER` (interrupts off, RV = 1) copies it to `0xA130F0` (window 0) or `0xA130F2` (window 1): one even-byte /UWR write, the page on D8-D10 | COMM12 = 0 | **run on the console** (Sega CD + 32X + 4 MB RAM cart, 19 Oct 2026): the disc booted, the command was answered twice, the 4 MB cart showed no effect. A real page switch is untested (it needs the 8 / 16 MB board) |
-| `0xF000 \| slot` (0-31) | the file command 38 opened goes to 128 KB slot `slot` (`cur_img`) until the next command 38 | COMM12 = 0 | sh2emu only; the 4 MB cart test that runs it on the console is in Sonic's current R4G build |
+| `0xF000 \| slot` (0-31) | the file command 38 opened goes to 128 KB slot `slot` (`cur_img`) until the next command 38 | COMM12 = 0 | **run on the console** (the same console and 4 MB cart, 19 Oct 2026): the 256 KB test file went to slot 21 (cart `0x2A0000`) and read back right on the Sub-CPU and the SH2; its own slot (16) was not written |
 
 ## 7. SH2 → Sub-CPU command 68: cart page, window 1 (OpenLara CD32X-REV)
 

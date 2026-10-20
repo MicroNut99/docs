@@ -1,8 +1,8 @@
 # CD32X – Paging as built in Sonic CD 2011 CD32X (R4E-R4G): two cases inside command 46
 
-**Status: the page register case (`0xF8nn`) has run on the console, on the 4 MB RAM cart (19 Oct 2026, section 6). The
-slot case (`0xF0nn`) and the page switch itself (it needs the 8 / 16 MB board) are not tested on hardware yet.** Written
-19 Oct 2026
+**Status: both cases have run on the console, on the 4 MB RAM cart (19 Oct 2026, section 6): the page register case
+(`0xF8nn`) and the slot case (`0xF0nn`). The page switch itself (it needs the 8 / 16 MB board) is not tested on
+hardware yet.** Written 19 Oct 2026
 by the Sonic CD 2011 CD32X session (Claude) for everyone working on the CD32X stack, next to
 [CD32X_CART_PAGING_PROPOSAL.md](CD32X_CART_PAGING_PROPOSAL.md) (variant A, SuperTux),
 [CD32X_SRAM_PAGING_PROPOSAL.md](CD32X_SRAM_PAGING_PROPOSAL.md) (variant B, OpenLara) and
@@ -11,8 +11,9 @@ variant B). Sonic's form is a fourth one. It is already written and it differs f
 (section 7).
 
 - **Proven on the console:** Sonic's R4D disc (no paging), and now the boot stack below on the 4 MB cart: a disc with
-  the new `sub_main.c` boots, and its cart test sent the page command and got its answer (section 6).
-- **Next on the console:** the current R4G build, whose 4 MB cart test also runs the slot case (section 6).
+  the new `sub_main.c` boots, its cart test sent the page command and got its answer, and the slot command put the
+  test file where it was told and nowhere else (section 6).
+- **Next on the console:** a real page switch, on the 8 / 16 MB board.
 - **The 16MB-PCB-CD32X board:** not built yet.
 
 ## 1. Which stack, and a number clash
@@ -136,8 +137,25 @@ What that proves:
 What it does not prove yet:
 - that a byte somewhere in the 4 MB cart could not have changed (a cart that decoded `/TIME` as a RAM write would do
   that without showing here);
-- the slot case `0xF0nn` (next: the current R4G build);
+- the slot case `0xF0nn` (tried next - result below);
 - a real page switch (the 8 / 16 MB board).
+
+**Second result (19 Oct 2026, the same console and 4 MB cart): the slot case.** Sonic's build with the slot test (the
+second R4G zip) booted and its cart test was run from the main menu. The owner's photo shows
+`CART TEST: NO PAGE MAPPER (4 MB)` / `SLOT 21 LOAD OK (SUB-CPU AND SH2)`, and the row still `BIG CART   OFF`. Slot 21
+is right for the main menu (its image ends at `0x298000`; from the title it would be slot 19, as sh2emu also showed).
+What that proves:
+- **The slot case ran on the console.** The SH2 opened the 256 KB test file (command 38, which puts it in slot 16 =
+  cart `0x200000`), sent command 46 `0xF015` (slot 21), and loaded eight 32 KB chunks one by one. The Sub-CPU read
+  every chunk back from cart `0x2A0000`-`0x2DFFFF` and found it right.
+- **The SH2 read the same 256 KB through its cache at `0x022A0000`**, word for word against the pattern it computes
+  itself.
+- **Nothing went to the file's own slot:** cart `0x200000` (inside the menu's image) did not show the test data.
+- **The page register case ran again** (two more page commands before the slot test), with the same result as
+  before.
+
+Not shown by the photo: the game after the test. The menu's scene is loaded whole at the next load, which keeps a
+stale image from being trusted.
 
 **The steps (all games can use them):**
 
@@ -183,7 +201,8 @@ for every variant.
 
 No new SH2 or MD numbers on the Kobo stack. Status of the two cases:
 - `0xF8nn` (page register): **run on the console** (4 MB cart, 19 Oct 2026). The page switch itself is still untested.
-- `0xF0nn` (file slot): sh2emu only so far.
+- `0xF0nn` (file slot): **run on the console** (4 MB cart, 19 Oct 2026): the file went to the slot it was given and
+  read back right on the Sub-CPU and the SH2.
 
 If the ledger lists the Kobo stack, the entry would be: **command 46, COMM2 `0xF8nn` page register, `0xF0nn` file
 slot**, plus a note that **68 = act file → Genesis planes** there.
