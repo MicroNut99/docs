@@ -139,6 +139,30 @@ Not on the Kobo stack: 60, 61 (no cart save area: Sonic saves to the backup RAM)
 | `0xF800 \| window << 8 \| page` | the page byte into Word RAM, then MD 26 `SAFE_CART_XFER` (interrupts off, RV = 1) copies it to `0xA130F0` (window 0) or `0xA130F2` (window 1): one even-byte /UWR write, the page on D8-D10 | COMM12 = 0 | **run on the console** (Sega CD + 32X + 4 MB RAM cart, 19 Oct 2026): the disc booted, the command was answered twice, the 4 MB cart showed no effect. A real page switch is untested (it needs the 8 / 16 MB board) |
 | `0xF000 \| slot` (0-31) | the file command 38 opened goes to 128 KB slot `slot` (`cur_img`) until the next command 38 | COMM12 = 0 | **run on the console** (the same console and 4 MB cart, 19 Oct 2026): the 256 KB test file went to slot 21 (cart `0x2A0000`) and read back right on the Sub-CPU and the SH2; its own slot (16) was not written |
 
+**Sonic R4K (20 Oct 2026): faster loading.** These are two changes inside existing commands; **no new SH2 or MD
+number**, and no change to what any command takes or returns. The SH2 side, `sh2_engboot.c` and the engine, is the same
+as R4J's.
+
+| Where | What changed | Used by | Why |
+|---|---|---|---|
+| SH2 **38** open (Sub-CPU `open_file`, `cd32x/kobo/sub_stubs.c`) | The first open after power-on reads the disc's whole root directory (8 sectors) into Sub-CPU RAM in **one** CD read (`dirc[]`, 48 KB, `.bss`). Every later open looks the name up there, with no disc access. A name not in the root returns not-found at once (`scd.c`: no `/ROMS` search, no root listing). If the root is longer than 24 sectors, or its first record is not `.`, there is no cache and every open goes the old way. | every command 38, and the Sub-CPU's own opens (the sound banks, command 53) | the old open read the root one sector at a time, each read a new seek: **about 1.7 s per open** (ares trace) |
+| MD **33** `CHILLY_RV_MEMCPY` (`cd32x/kobo/hw_md.s`) | when source, destination and length are all multiples of 4, it copies with `move.l` (two word writes to the 16-bit cart, the same bytes in the same places), about 9.5 clocks a byte instead of 42. Anything else (the 2-byte cart probe) takes the old byte loop. Interrupts stay on, RV = 1 as before. | command 46 forms a) and b): each chunk run goes Word RAM `0x200000` → cart in 16 KB pieces | the byte loop was **0.7 s of every 2.0 s** per 128 KB loaded (ares trace) |
+
+The other stacks have their own copies of these files: this changes Sonic's Kobo stack only. A stack that wants the
+same speed-up can take `open_file` / `dirc_*` from Sonic's `sub_stubs.c` and the aligned path of `chilly_rv_memcpy`.
+
+**Results:**
+- **ares** (MicroNut99/ares_android, the same cold boot of the R4J and R4K discs without music, a fresh 16 MB cart):
+
+  | | R4J | R4K |
+  |---|---|---|
+  | `SCDDATA.PAK` open → `SONICCD.PAK` open | 5.5 s | 2.4 s |
+  | power-on → the title running | 87.5 s | **67.9 s** |
+  | the title demo's act starts | 134.6 s | **109.6 s** |
+
+- **The owner:** reports that R4K works (20 Oct 2026).
+- **Console:** not burned yet.
+
 ## 7. SH2 → Sub-CPU command 68: cart page, window 1 (OpenLara CD32X-REV)
 
 For the paged 8 / 16 MB SRAM cart (MicroNut99/16MB-PCB-CD32X): the SH2s can't reach the cart's
