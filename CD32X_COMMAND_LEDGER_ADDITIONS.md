@@ -164,6 +164,36 @@ same speed-up can take `open_file` / `dirc_*` from Sonic's `sub_stubs.c` and the
 - **The owner:** reports that R4K works (20 Oct 2026).
 - **Console:** not burned yet.
 
+**Sonic R5C (21 Oct 2026): the special stages' floor on the Sega CD's graphics chip.**
+- **One new SH2 → Sub-CPU number, 80**, in `cd32x/sub_main.c`. Only the Sub-CPU can drive the stamp / rotation chip,
+  so the floor needs a Sub-CPU command.
+- **No new 68000 listener routine:** `kobo/hw_md.s` is R4K's. Command 80 uses the existing MD routines 7
+  (`copy_vram`), 19-22 (32X / VDP reads and writes) and 34 (`set_vdp_reg`).
+- `sh2_engboot.c`, `kobo/sub_stubs.c` and `kobo/scd.c` are unchanged.
+
+| CMD 80, COMM2 low byte | What it does | Reply |
+|---|---|---|
+| 0 | begin: COMM2 high byte = special stage 1-8. Opens `FLOOR<n>.BIN` (256 KB, `tools/build_floor.py`: stamps at 0, stamp map at 0x20000, header 'FLR1'), switches Word RAM to 2 Mbit mode (MODE written, then read back until set), reads the file into it, and sets the Genesis up: window plane rows 15-27 (lines 120-223), palette line 3, two name tables (0xA000 / 0xB000) over two image buffers (0x0020 / 0x4420) | COMM12 = 1 on, 0 no floor (no file, wrong length or header, more than 512 stamps) |
+| 1 | COMM8 = the floor's X << 16 \| Z, 13.3 each | – |
+| 3 | COMM8 = the floor's height (the engine's YPos), sent when it changes | – |
+| 4 | COMM8 = sin << 16 \| cos of its angle. The Sub-CPU writes the trace table (one line per screen line, the engine's `Draw3DSkyLayer` arithmetic) and starts the chip. Then, between other commands: the image to the main CPU (RET), into the hidden buffer in 1024-word pieces (MD 7), and that buffer's name table shown (register 3) after the next vertical blank | COMM12 = 1 on, 0 the floor was ended |
+| 5 | COMM2 high byte = colour k (1-15), COMM8 = the Genesis colours k and k + 1 (CRAM line 3, MD 22) | – |
+| 6 | COMM2 high byte = colour k: the floor file's palette index for it | COMM8 |
+| 7 | end: display off, Word RAM back to 1 Mbit mode (0x05, read back), the listener's set-up (MD 1), planes cleared (MD 4 / 8) | – |
+
+- **While the floor is on, Word RAM belongs to it.** Any command other than 0, 80, 45, 48, 52, 54, 57 and 58 ends the
+  floor first: the loads, the sound banks, the backup RAM file, the cart pages. The SH2 sees COMM12 = 0 on its next
+  op 4 and draws the floor itself again.
+- **No green diagnostic text** while the floor is on (`print_diag`). It would write Word RAM.
+- **The Sub-CPU's own `switch_banks`** (the diagnostic print, `scd_open_file`'s checkpoint line) must not run while the
+  floor is on. In 2 Mbit mode it would hand Word RAM to the main CPU, and the Sub-CPU's next Word RAM access hangs it
+  (Mega-CD manual p.24). Only the command list above keeps them out: anyone adding a command to that list must check
+  this.
+- **Status:**
+  - emulation (MicroNut99/ares_android): special stage 1 drawn by the chip;
+  - sh2emu: answers command 80 as the Sub-CPU does, without drawing the chip's picture;
+  - **console: not burned yet.**
+
 ## 7. SH2 → Sub-CPU command 68: cart page, window 1 (OpenLara CD32X-REV)
 
 For the paged 8 / 16 MB SRAM cart (MicroNut99/16MB-PCB-CD32X): the SH2s can't reach the cart's
