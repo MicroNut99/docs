@@ -76,7 +76,7 @@ The ledger PDF's 68000 list ends at 34 `SET_VDP_REG`, 35 `END`. The current list
 | 60 | D32X: start D32XR from the cart (never returns) |
 | 61 | save area: 4 KB piece → cart 0x3F0000 + COMM2 × 4 KB; reply COMM12 |
 | **62–67** | **the Genesis picture (section 1)** |
-| **68** | **cart page, window 1 (section 7)**: 8 / 16 MB SRAM cart, OpenLara CD32X-REV test builds |
+| **68** | **cart page, window 1 (section 7)**: 8 / 16 MB SRAM cart, OpenLara CD32X-REV test builds; SuperTux CD32X REV `CART_MB=8/16` builds (REV11-16MB-T1) |
 
 Free: 39–43, 49, 55, 69 and up.
 
@@ -100,7 +100,7 @@ command numbers.
 | 5-9 | 0x3F5000-0x3F9FFF | Holiday Hare '95 (OpenJazz CD32X) |
 | 10 | 0x3FA000 | OpenJazz CD32X port settings (J19) |
 | 13 | 0x3FD000 | **SuperTux CD32X REV5**: options, high scores, 7 game slots ("STX2", 368 bytes) |
-| 15 | 0x3FF000 | **Cart test scratch** (OpenLara CD32X-REV `CART=` builds): a 4 KB test pattern per page, written and read back at every start of a test disc. Never holds data worth keeping; a game must not store anything here |
+| 15 | 0x3FF000 | **Cart test scratch** (OpenLara CD32X-REV `CART=` builds; SuperTux CD32X REV `CART_MB=8/16` builds - its size probe writes 8-byte markers here on pages 1, 2 and 6 at every start): a 4 KB test pattern per page, written and read back at every start of a test disc. Never holds data worth keeping; a game must not store anything here |
 
 Free: 11, 12, 14. (OpenLara CD32X used `0x3F0000` settings and `0x3F0400` saved game -
 inside piece 0; it and OpenJazz share the cart only one at a time.)
@@ -189,4 +189,31 @@ the OpenLara CD32X-REV `CART=16` test disc booted and its cart test showed exact
 4 MB cart has no page register), `SAVE AREA UNCHANGED`; the game played afterwards. So command 68
 is answered and harmless on the 4 MB cart. **A real
 page switch is untested**: it needs the 8 / 16 MB board.
+
+### 7a. SuperTux CD32X REV: the same command 68 (REV11-16MB-T1, 20 Oct 2026)
+
+SuperTux CD32X REV uses command 68 exactly as above - same number, same COMM2 / COMM12, the same
+68000 routine 26 `safe_cart_xfer` to `0xA130F2`, no new 68000 routine. Code: MicroNut99/SuperTuxCD32X_REV,
+`cd32x/subcpu/main.c` (the block inside `#if STX_CART_PAGED`), `game/cart.c`, `game/yt_mars.c`.
+
+- **Compiled only in `CART_MB=8` / `CART_MB=16 ./build.sh`:** `-DSTX_CART_PAGED=1` in the Makefile's
+  **`HWFLAGS`** (main.c is compiled with `HWFLAGS`, not `CCFLAGS`). `tools/check_boot.py` accepts
+  exactly that block (fingerprinted); the normal 4 MB build has no command 68.
+- **Lesson for every stack: check the switch reached `main.c`.** SuperTux's first two test discs
+  put the switch in `CCFLAGS`, so 68 was not in the Sub-CPU program. Nothing answered it: the SH2
+  waited out its command timeout (about 35-50 s each) and the console sat on a blank screen for
+  about 2 minutes after the loading bar, then went on as a 4 MB cart. `build.sh` now stops unless
+  main.c's compile line carries `STX_CART_PAGED=1`. An unanswered command looks like a hang, not
+  an error.
+- **What the game does with it:** a size probe at every start (markers in save piece 15 of pages
+  1, 2 and 6 → 4, 8 or 16 MB on the title); on a 16 MB cart all 70 level packs get their own
+  place in pages 1-7 (0x280000-0x3EFFFF of each page) and are copied in from the disc at the
+  first start (once; checked by their sums at later starts). Window 0 is never paged; saves stay
+  on page 1 (window 1 is put back on page 1 before every CMD 58 / 61); both SH2 caches are purged
+  after every page change.
+- **Status:** run in MicroNut99/ares_android (headless, the 16 MB board emulated): the probe finds
+  4 MB and 16 MB, the first-start copy, the resume after a power-off, later starts with no copying,
+  the 4 MB cart unchanged. On the console: the first two (broken) discs booted on the 4 MB cart
+  after the stop; the fixed build is not yet run on the console, and a real page switch still
+  needs the 8 / 16 MB board.
 
