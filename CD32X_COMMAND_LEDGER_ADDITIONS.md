@@ -213,7 +213,7 @@ SuperTux CD32X REV uses command 68 exactly as above - same number, same COMM2 / 
   after every page change.
 - **Status:** run in MicroNut99/ares_android (headless, the 16 MB board emulated): the probe finds
   4 MB and 16 MB, the first-start copy, the resume after a power-off, later starts with no copying,
-  the 4 MB cart unchanged. On the console: the first two (broken) discs booted on the 4 MB cart
+  the 4 MB cart unchanged. On the console: test disc 2 (without 68) booted on the 4 MB cart
   after the stop; the fixed build is not yet run on the console, and a real page switch still
   needs the 8 / 16 MB board.
 
