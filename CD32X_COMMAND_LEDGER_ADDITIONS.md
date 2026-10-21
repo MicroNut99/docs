@@ -145,14 +145,14 @@ as R4J's.
 
 | Where | What changed | Used by | Why |
 |---|---|---|---|
-| SH2 **38** open (Sub-CPU `open_file`, `cd32x/kobo/sub_stubs.c`) | The first open after power-on reads the disc's whole root directory (8 sectors) into Sub-CPU RAM in **one** CD read (`dirc[]`, 48 KB, `.bss`). Every later open looks the name up there, with no disc access. A name not in the root returns not-found at once (`scd.c`: no `/ROMS` search, no root listing). If the root is longer than 24 sectors, or its first record is not `.`, there is no cache and every open goes the old way. | every command 38, and the Sub-CPU's own opens (the sound banks, command 53) | the old open read the root one sector at a time, each read a new seek: **about 1.7 s per open** (ares trace) |
-| MD **33** `CHILLY_RV_MEMCPY` (`cd32x/kobo/hw_md.s`) | when source, destination and length are all multiples of 4, it copies with `move.l` (two word writes to the 16-bit cart, the same bytes in the same places), about 9.5 clocks a byte instead of 42. Anything else (the 2-byte cart probe) takes the old byte loop. Interrupts stay on, RV = 1 as before. | command 46 forms a) and b): each chunk run goes Word RAM `0x200000` → cart in 16 KB pieces | the byte loop was **0.7 s of every 2.0 s** per 128 KB loaded (ares trace) |
+| SH2 **38** open (Sub-CPU `open_file`, `cd32x/kobo/sub_stubs.c`) | The first open after power-on reads the disc's whole root directory (8 sectors) into Sub-CPU RAM in **one** CD read (`dirc[]`, 48 KB, `.bss`). Every later open looks the name up there, with no disc access. A name not in the root returns not-found at once (`scd.c`: no `/ROMS` search, no root listing). If the root is longer than 24 sectors, or its first record is not `.`, there is no cache and every open goes the old way. | every command 38, and the Sub-CPU's own opens (the sound banks, command 53) | the old open read the root one sector at a time, each read a new seek: **about 1.7 s per open** (emulation trace) |
+| MD **33** `CHILLY_RV_MEMCPY` (`cd32x/kobo/hw_md.s`) | when source, destination and length are all multiples of 4, it copies with `move.l` (two word writes to the 16-bit cart, the same bytes in the same places), about 9.5 clocks a byte instead of 42. Anything else (the 2-byte cart probe) takes the old byte loop. Interrupts stay on, RV = 1 as before. | command 46 forms a) and b): each chunk run goes Word RAM `0x200000` → cart in 16 KB pieces | the byte loop was **0.7 s of every 2.0 s** per 128 KB loaded (emulation trace) |
 
 The other stacks have their own copies of these files: this changes Sonic's Kobo stack only. A stack that wants the
 same speed-up can take `open_file` / `dirc_*` from Sonic's `sub_stubs.c` and the aligned path of `chilly_rv_memcpy`.
 
 **Results:**
-- **ares** (MicroNut99/ares_android, the same cold boot of the R4J and R4K discs without music, a fresh 16 MB cart):
+- **emulation** (the same cold boot of the R4J and R4K discs without music, a fresh 16 MB cart):
 
   | | R4J | R4K |
   |---|---|---|
