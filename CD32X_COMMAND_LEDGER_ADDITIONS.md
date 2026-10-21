@@ -102,8 +102,9 @@ command numbers.
 | 13 | 0x3FD000 | **SuperTux CD32X REV5**: options, high scores, 7 game slots ("STX2", 368 bytes) |
 | 15 | 0x3FF000 | **Cart test scratch** (OpenLara CD32X-REV `CART=` builds; SuperTux CD32X REV `CART_MB=8/16` builds - its size probe writes 8-byte markers here on pages 1, 2 and 6 at every start): a 4 KB test pattern per page, written and read back at every start of a test disc. Never holds data worth keeping; a game must not store anything here |
 
-Free: 11, 12, 14. (OpenLara CD32X used `0x3F0000` settings and `0x3F0400` saved game -
-inside piece 0; it and OpenJazz share the cart only one at a time.)
+Free: 11, 12, 14. (OpenLara CD32X uses piece 0 and on: `0x3F0000` settings, `0x3F0300` Caves record
+(CAVES-1), `0x3F0310` level slot record (RESUME-1, section 8), `0x3F0400` saved game; it and OpenJazz
+share the cart only one at a time.)
 
 ## 6. The Kobo stack (Sonic CD 2011 CD32X): its numbers, and the paging cases
 
@@ -211,9 +212,50 @@ SuperTux CD32X REV uses command 68 exactly as above - same number, same COMM2 / 
   first start (once; checked by their sums at later starts). Window 0 is never paged; saves stay
   on page 1 (window 1 is put back on page 1 before every CMD 58 / 61); both SH2 caches are purged
   after every page change.
-- **Status:** run in MicroNut99/ares_android (headless, the 16 MB board emulated): the probe finds
+- **Status:** run in emulation (headless, the 16 MB board emulated): the probe finds
   4 MB and 16 MB, the first-start copy, the resume after a power-off, later starts with no copying,
   the 4 MB cart unchanged. On the console: test disc 2 (without 68) booted on the 4 MB cart
   after the stop; the fixed build is not yet run on the console, and a real page switch still
   needs the 8 / 16 MB board.
 
+## 8. OpenLara CD32X-REV RESUME-1: the level stays in the cart after power-off (no new command)
+
+**What was done.** The cart is battery-backed, so the level in the level slot (cart `0x200000`, up to
+`0x3EFFFF`) is still there at the next power-on, like the save. After every level loaded from the CD,
+the SH2 now writes a record into the save area (piece 0, OpenLara's own part):
+
+| Cart | Contents |
+|---|---|
+| `0x3F0310` | `'OLLV'` (written last, after a complete load) |
+| `0x3F0314` | level number (`LevelID`) |
+| `0x3F0318` | file length (bytes loaded by command 46) |
+| `0x3F031C` | checksum of the level as it is in the cart |
+| `0x3F0320` | ~checksum |
+
+The first level after power-on (Current Position from the passport, or a level picked there) checks
+it: same level, same length as the file on this disc (command 38, lookup only), and the checksum of
+what is in the cart now matches. If so, the level is **not loaded from the CD**: the game goes
+straight to the level's sound effects (command 53) and starts. Anything else (first start, a movie
+or the cart test's load test used the slot, a load cut off by power-off, a different disc) loads
+from the CD as before and writes a new record. **A + B + C** held = always from the CD. Same rules as
+CAVES-1's Caves record at `0x3F0300` (the title level, cart `0x080000`).
+
+**The fast load advantage.** Emulation, Lost Valley, Current Position after a power cycle: **about
+28 s → about 3 s** (the checksum read of the level, ~1.9 MB at most, and the sound effects). Within
+one session nothing changes: going back to the level already in the slot was already instant (OL-2c),
+a new level still loads from the CD. Not tried on the console yet.
+
+**Seen only during a preload of a new level (a CD load), never on a resume from the cart:**
+- the music stops (command 54: no CD audio while data is read);
+- the splash picture with the red progress bar;
+- COMM12 = `0x4Fnn` (nn = level) while loading, then `0x4E14` (level ready); `0x4EEn` = load failed;
+- the extra save-area write of the new record (commands 58 + 61, one 4 KB piece) after the load.
+
+On a resume the passport stays on screen for those ~3 s, then the level starts; COMM12 goes straight
+to `0x4E14` (no `0x4Fnn`).
+
+**Boot stack: nothing added.** RESUME-1 uses only existing commands: SH2 38, 46, 53, 54, 58, 61.
+No change to the Sub-CPU `main.c`, `hw_md.s`, the boot block, CDLOADER, `crt0.s` or `src-md/`.
+The only boot stack addition for OpenLara CD32X-REV is command **68** (section 7), in the `CART=`
+test builds only. Code: MicroNut99/OpenLaraCD32X-REV, branch `cart-test-8mb-16mb`,
+`engine/openlara-opt2.patch` (`main.cpp`: `slotInCart`, `slotRecord`, `osLoadLevel`), `docs/OPT.md`.
