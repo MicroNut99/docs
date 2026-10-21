@@ -190,7 +190,7 @@ same speed-up can take `open_file` / `dirc_*` from Sonic's `sub_stubs.c` and the
   (Mega-CD manual p.24). Only the command list above keeps them out: anyone adding a command to that list must check
   this.
 - **Status:**
-  - emulation (MicroNut99/ares_android): special stage 1 drawn by the chip;
+  - emulation: special stage 1 drawn by the chip;
   - sh2emu: answers command 80 as the Sub-CPU does, without drawing the chip's picture;
   - **console: not burned yet.**
 
