@@ -244,6 +244,27 @@ therefore clears COMM4 when it ends the floor. Another stack reusing the records
 
 Code: MicroNut99/Sonic2011CD32X, branch `r3`, `docs/R5G_NOTES.md`.
 
+**Sonic R5H (22 Oct 2026): command 80 op 4 answered first.** No new number, no new op, no listener change.
+- **`cd32x/sub_main.c`, op 4:** the Sub-CPU now writes its answer (COMM12) and COMM0 = 0 as soon as it has read the
+  angle, then writes the trace table and starts the chip. Before, the SH2 waited through the trace table: 100 lines of
+  32-bit arithmetic on the Sub-CPU's 68000.
+- **On the SH2 side,** op 1 (X, Z) is sent at the picture's first draw and op 4 is not waited for. Its answer is read
+  before the SH2's next command, or at the picture's end.
+- **For other stacks using the same pattern:**
+  - A command answered early must not be followed by a new one until COMM0 is 0 again.
+  - Its reply register must be read before any later command can overwrite it.
+- **Data, not code:** `FLOOR2.BIN` - `FLOOR8.BIN` list plane B's name table for rows 0-27 (layer 1 under the floor),
+  in the same block list op 0 already copies.
+- `kobo/hw_md.s`, `kobo/sub_stubs.c`, `kobo/scd.c` and `sh2_engboot.c` are unchanged.
+- **The 32X frame buffer rule this round ran into:** a **byte** write of 0 into the frame buffer (not the overwrite
+  image) does not happen. A word or long write of 0 does. Keep tables in the frame buffer as 16-bit words.
+- **Status:**
+  - sh2emu: all 31 check runs `no problems found`;
+  - emulation (ares): special stages 1, 2, 6, 7 and the title;
+  - **console: not burned yet.**
+
+Code: MicroNut99/Sonic2011CD32X, branch `r3`, `docs/R5H_NOTES.md`.
+
 ## 7. SH2 → Sub-CPU command 68: cart page, window 1 (OpenLara CD32X-REV)
 
 For the paged 8 / 16 MB SRAM cart (MicroNut99/16MB-PCB-CD32X): the SH2s can't reach the cart's
