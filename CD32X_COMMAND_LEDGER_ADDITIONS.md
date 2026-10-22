@@ -263,7 +263,7 @@ Code: MicroNut99/Sonic2011CD32X, branch `r3`, `docs/R5G_NOTES.md`.
   image) does not happen. A word or long write of 0 does. Keep tables in the frame buffer as 16-bit words.
 - **Status:**
   - sh2emu: all 31 check runs `no problems found`;
-  - emulation (ares): special stages 1, 2, 6, 7 and the title;
+  - emulation: special stages 1, 2, 6, 7 and the title;
   - **console: not burned yet.**
 
 Code: MicroNut99/Sonic2011CD32X, branch `r3`, `docs/R5H_NOTES.md`.
