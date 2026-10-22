@@ -109,6 +109,10 @@ OpenJazz share the cart only one at a time. Its Caves and level slot records wer
 that holds the settings and the saved game. A build with SAVE-2 ignores the old records: it loads Caves
 and the level from the CD once.)
 
+**Outside this area (OpenLara CD32X-REV v1.6, SLOTS-1):** OpenLara's 16 save slots are at cart
+`0x060000`–`0x07FFFF`, in OpenLara's own layout (between its game image and Caves), written by CMD 61
+with COMM2 bit 8 (section 11). They are not pieces of the shared save area above.
+
 ## 6. The Kobo stack (Sonic CD 2011 CD32X): its numbers, and the paging cases
 
 Sonic CD 2011 CD32X runs on the **Kobo boot path**, not on this ledger's stack:
@@ -410,5 +414,64 @@ calls are inline assembly in `main.c`.
   about `0x2E7A0`; the stack is at the top, `0x80000`).
 - **Other stacks:** the same code is in OpenJazz CD32X (R7) and Hurrican CD32X (P2b), both run on
   the console. How it works and the load times measured there: `CD32X_STREAM_READ.md`. Any game on this stack that loads with command 46 can take it the same way.
-- **Status: compile-checked (both settings); not yet run in emulation or on the console.**
+- **Status: run in emulation in OpenLara (v1.6 tests): the first level load 40 s → 17 s. Not yet on the
+  console in OpenLara (on the console in OpenJazz and Hurrican).**
+
+## 11. OpenLara CD32X-REV SLOTS-1: command 61 writes the save slot area (Sub-CPU `main.c`, switched)
+
+**Boot stack: one change, behind a switch** (`#if OL_SLOTS`, `subcpu/Makefile` HWFLAGS `SLOTS ?= 1`;
+`SLOTS=0` builds command 61 as before). No new command number.
+
+| Command 61 | COMM2 | Writes | Reply COMM12 |
+|---|---|---|---|
+| as before | piece 0–15 (bit 8 clear) | cart `0x3F0000 + (COMM2 & 15) × 4 KB` | `1` ok / `0` failed |
+| **slot area** | bit 8 set, piece 0–31 | cart **`0x060000 + (COMM2 & 31) × 4 KB`** (`0x060000`–`0x07FFFF`) | **`0x101`** ok / `0` failed |
+
+- The data still comes through command 58 (the 4 KB buffer); the copy and the read-back check are
+  the same as for the save area.
+- **How the SH2 finds out:** at start OpenLara rewrites slot piece 31 with what it holds already. `0x101`
+  = the slots are there; `1` = an older Sub-CPU (it took `31 & 15` and wrote save piece 15, the cart
+  test scratch piece of section 5, which never holds anything worth keeping): single save as before.
+- The area belongs to OpenLara's cart layout: its game image must end before `0x060000` (`build.sh`
+  stops above 384 KB). Another game on this stack that wants slots should pick its own place in its
+  own layout and say so here.
+- Status: run in emulation (save, list, load; old Sub-CPU: single save). Not yet on the console.
+
+## 12. OpenLara CD32X-REV FMV-2: command 46 ring mode (Sub-CPU `main.c`, switched)
+
+**Boot stack: one change, behind a switch** (`#if OL_FMVRING`, `FMVRING ?= 1`; `FMVRING=0` builds
+command 46 as before). No new command number.
+
+| COMM2 bits | Meaning |
+|---|---|
+| 15 | no read-back (as before, OL-13) |
+| **14** | **ring mode**: file chunk `COMM2 & 0x1FFF` goes to ring slot `chunk % 60` of the image slot (60 × 32 KB) |
+| **13** | (ring mode) to slot **60** instead: the spare after the ring's end, a copy of slot 0, so a file chunk across the end stays in one piece |
+
+- **Reply:** COMM12 = `bad | 0x100` in ring mode. An older Sub-CPU masks COMM2 with `0x7FFF`, writes
+  nothing (offset past the file) and replies `0`: the SH2 then falls back to loading the movie whole.
+- **While it copies in ring mode** the Sub-CPU writes **COMM12 = `0x8000`** (before the first 4 KB
+  piece) and `0` (after the last), then the reply. The slave SH2 does not read the cart while bit 15 is
+  set, so RV never holds it while its PWM block runs out. (Two extra 68000 commands 20 per chunk.)
+- Only movies use ring mode; levels load as before.
+- Status: run in emulation (CANYON, 20 MB, streamed whole at 15 pictures a second, the sound in real
+  time). Not yet on the console.
+
+## 13. OpenLara CD32X-REV CARTW-1: command 46 copies words (Sub-CPU `main.c`, switched)
+
+**Boot stack: one change, behind a switch** (`#if OL_CARTW`, `CARTW ?= 1`; `CARTW=0` builds the
+copy as before). No new command number, no listener change: it uses the existing **68000 command
+27 `safe_cart_xfer_w`** (`hw_md.s`: interrupts masked, RV = 1, `move.w` loop, RV = 0) instead of
+**33 `chilly_rv_memcpy`** (byte loop).
+
+| | Command 33 (before) | Command 27 (CARTW-1) |
+|---|---|---|
+| Arguments | destination, source, length | **source, destination**, length |
+| Loop | `move.b` + `subi.l` + `bgt`: about 42 clocks a byte | `move.w` + `subq.l` + `bgt`: about 15 clocks a byte |
+| Piece | 16 KB (ring mode 4 KB) | 4 KB (about 8 ms with the 68000's interrupts masked: less than a frame, so the vertical blank waits but is never lost) |
+
+- Lengths are multiples of 2048 and all addresses are even (Word RAM `0x200000`, cart `0x400000 + …`).
+- The cart must take 16-bit writes: the 4 MB RAM cart and the 16MB-PCB-CD32X do (`/WE` with byte
+  enables). Command 61 (the save area) still uses command 33.
+- Status: run in emulation (levels and movies). Not yet on the console.
 
