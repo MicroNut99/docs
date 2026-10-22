@@ -192,7 +192,57 @@ same speed-up can take `open_file` / `dirc_*` from Sonic's `sub_stubs.c` and the
 - **Status:**
   - emulation: special stage 1 drawn by the chip;
   - sh2emu: answers command 80 as the Sub-CPU does, without drawing the chip's picture;
-  - **console: not burned yet.**
+  - console: R5C itself was not burned; command 80 was **run on the console as part of R5G** (below).
+
+**Sonic R5G (21 Oct 2026): command 80 extended – the title, the special stages' skies, the DMA copy.** R5G includes
+R5D, R5E and R5F, which were never burned on their own.
+- **No new SH2 → Sub-CPU number.** Everything is inside command 80, in `cd32x/sub_main.c`.
+- **No new 68000 listener routine:** `kobo/hw_md.s` is still R4K's. The new work uses its existing routines 7
+  (`copy_vram`), 19-22 (32X / VDP reads and writes) and 34 (`set_vdp_reg`), and its existing record handling
+  (`sgb_poll` / `sgb_vblank`, flags `SGB_FLAG` - `SGB_BAD` at `0xFF8000`-`0xFF8006`), which command 68 already uses for
+  the acts.
+- `sh2_engboot.c` (`SH2-VR4I`), `kobo/sub_stubs.c` and `kobo/scd.c` are unchanged.
+
+| CMD 80, COMM2 low byte | What changed in R5G (R5C's meaning otherwise) |
+|---|---|
+| 0 begin | COMM2 high byte = **1-9**. **9 = the title** (`FLOOR9.BIN`, 0x40000 + 0x4000 bytes): the clouds on the window plane rows 0-12 (lines 0-103), the mountains and water on plane B, the planet as 8 hardware sprites. **1-8** (`FLOOR<n>.BIN`, 0x40000 + 0x8000 bytes; special stage 1 + 16 × 7680 bytes for its swirl): the floor as before, plus the stage's sky on planes A and B, lines 0-119. Any other length = no floor (COMM12 = 0). The begin also turns the listener's record handling on (`SGB_FLAG` = 1, `SGB_LAST` / `SGB_READY` / `SGB_BAD` = 0, COMM6 = 0) |
+| 1 | the title: COMM8 = the clouds' scroll value. The Sub-CPU adds 8 a frame between the SH2's pictures and starts the next picture as soon as the last copy ends. Special stages: as R5C |
+| 4 | the copy into video RAM is now the **VDP's DMA from Word RAM** (see below), not the 68000 word by word. The buffer switch (register 3) happens only in the vertical blank or the screen's first lines (the VDP's line counter, read with MD 21), otherwise at the next vertical blank |
+| 5 | **no longer used:** the colours come in the SH2's records |
+| 6 | COMM2 high byte = the CRAM slot (the title: 1-47; a special stage's floor: 49-63, its sky 1-47) → COMM8 = its palette index in the file |
+| **8 (new op)** | special stage 1 only: COMM8 = the swirl's picture (0-15) for this frame. The Sub-CPU keeps the 16 pictures in its own RAM, copies the wanted one into Word RAM (`0x14200`) while the chip draws, DMAs it into the hidden one of two plane B buffers (`0xA000` / `0xE000`) and switches register 4 in the vertical blank |
+| 7 end | records off first (`SGB_FLAG` = 0), then as R5C, and the **Genesis display left off** (register 1 = `0x34`) |
+
+**The SH2 sends one record a picture through the listener** (the same path as the acts' planes, `md/sgb.h`): each line's
+plane scroll, the vertical scroll, the title's planet sprite heights, and every colour that changed (CRAM 0-63). The
+68000 writes it to the VDP in the vertical blank, unchanged code.
+
+**The DMA from Word RAM, for any stack that copies the chip's picture this way:**
+- The Sub-CPU issues it through MD 22 (one long write to the VDP control port `0xC00004`): registers 15 / 23, 21 / 22,
+  19 / 20 two at a time, then the destination with the DMA bit. The 68000 waits while it runs.
+- **A DMA from Word RAM writes a wrong first word** (the word read before it). Each piece therefore starts one word
+  early. The pieces go from the buffer's end to its start, so each wrong word lands on a word the next piece writes
+  again. The last one lands in a spare cell before each buffer.
+- **The 68000 must not write a VDP address and its data as two commands** while the records are on: the vertical-blank
+  handler can come between them and set an address of its own. Only single long writes and register writes are used.
+- About twice as fast as the word-by-word copy.
+
+**Which commands end the floor** (they need Word RAM): any except 0, 45, 48, 52, 54, 56, 57, 58, 59 and 80. **New in
+R5G: 56 and 59** (backup RAM load / save) no longer end it - they use the BIOS's own buffers, not Word RAM. Command 48
+with a sound effect in the high byte (Sonic's K33) is answered by the pad fast path before this test, so it never ends
+the floor either.
+
+**COMM4 at the end.** While the records are on, COMM4 holds the last record id. The Sub-CPU's start-up check prints
+`SH2 NEVER EVEN REACHED THIS FILE` for any COMM4 other than 0, `0x1234` and `0x0EEE` once the planes are off. The SH2
+therefore clears COMM4 when it ends the floor. Another stack reusing the records outside an act must do the same.
+
+**Results:**
+- sh2emu: all 31 check runs `no problems found`. Special stage pictures a second (last 10 s): 20.0 / 28.4 / 28.2 /
+  30.0 / 15.5 / 14.9 / 17.7 / 29.9 for stages 1-8 (R5C: 8.6-11.7); the title 18.1.
+- emulation (ares): the title, its fade to the menu, special stages 1, 2 and 6.
+- **console: works** (Sega CD + 32X + 16 MB cart, 21 Oct 2026, the owner's report).
+
+Code: MicroNut99/Sonic2011CD32X, branch `r3`, `docs/R5G_NOTES.md`.
 
 ## 7. SH2 → Sub-CPU command 68: cart page, window 1 (OpenLara CD32X-REV)
 
