@@ -100,11 +100,14 @@ command numbers.
 | 5-9 | 0x3F5000-0x3F9FFF | Holiday Hare '95 (OpenJazz CD32X) |
 | 10 | 0x3FA000 | OpenJazz CD32X port settings (J19) |
 | 13 | 0x3FD000 | **SuperTux CD32X REV5**: options, high scores, 7 game slots ("STX2", 368 bytes) |
+| 14 | 0x3FE000 | **OpenLara CD32X-REV** (SAVE-2): the Caves record `'OLCV'` at `0x3FE000` and the level slot record `'OLLV'` at `0x3FE010` (section 8). Rewritten after every level load from the CD |
 | 15 | 0x3FF000 | **Cart test scratch** (OpenLara CD32X-REV `CART=` builds; SuperTux CD32X REV `CART_MB=8/16` builds - its size probe writes 8-byte markers here on pages 1, 2 and 6 at every start): a 4 KB test pattern per page, written and read back at every start of a test disc. Never holds data worth keeping; a game must not store anything here |
 
-Free: 11, 12, 14. (OpenLara CD32X uses piece 0 and on: `0x3F0000` settings, `0x3F0300` Caves record
-(CAVES-1), `0x3F0310` level slot record (RESUME-1, section 8), `0x3F0400` saved game; it and OpenJazz
-share the cart only one at a time.)
+Free: 11, 12. (OpenLara CD32X uses piece 0 and on: `0x3F0000` settings, `0x3F0400` saved game; it and
+OpenJazz share the cart only one at a time. Its Caves and level slot records were at `0x3F0300` /
+`0x3F0310` in piece 0 until SAVE-2 moved them to piece 14, so a level load no longer rewrites the piece
+that holds the settings and the saved game. A build with SAVE-2 ignores the old records: it loads Caves
+and the level from the CD once.)
 
 ## 6. The Kobo stack (Sonic CD 2011 CD32X): its numbers, and the paging cases
 
@@ -239,7 +242,7 @@ therefore clears COMM4 when it ends the floor. Another stack reusing the records
 **Results:**
 - sh2emu: all 31 check runs `no problems found`. Special stage pictures a second (last 10 s): 20.0 / 28.4 / 28.2 /
   30.0 / 15.5 / 14.9 / 17.7 / 29.9 for stages 1-8 (R5C: 8.6-11.7); the title 18.1.
-- emulation (ares): the title, its fade to the menu, special stages 1, 2 and 6.
+- emulation: the title, its fade to the menu, special stages 1, 2 and 6.
 - **console: works** (Sega CD + 32X + 16 MB cart, 21 Oct 2026, the owner's report).
 
 Code: MicroNut99/Sonic2011CD32X, branch `r3`, `docs/R5G_NOTES.md`.
@@ -323,23 +326,25 @@ SuperTux CD32X REV uses command 68 exactly as above - same number, same COMM2 / 
 
 **What was done.** The cart is battery-backed, so the level in the level slot (cart `0x200000`, up to
 `0x3EFFFF`) is still there at the next power-on, like the save. After every level loaded from the CD,
-the SH2 now writes a record into the save area (piece 0, OpenLara's own part):
+the SH2 now writes a record into the save area (piece 14 since SAVE-2, section 5; it was in piece 0 at
+`0x3F0310`):
 
 | Cart | Contents |
 |---|---|
-| `0x3F0310` | `'OLLV'` (written last, after a complete load) |
-| `0x3F0314` | level number (`LevelID`) |
-| `0x3F0318` | file length (bytes loaded by command 46) |
-| `0x3F031C` | checksum of the level as it is in the cart |
-| `0x3F0320` | ~checksum |
+| `0x3FE010` | `'OLLV'` (written last, after a complete load) |
+| `0x3FE014` | level number (`LevelID`) |
+| `0x3FE018` | file length (bytes loaded by command 46) |
+| `0x3FE01C` | checksum of the level as it is in the cart |
+| `0x3FE020` | ~checksum |
 
 The first level after power-on (Current Position from the passport, or a level picked there) checks
 it: same level, same length as the file on this disc (command 38, lookup only), and the checksum of
 what is in the cart now matches. If so, the level is **not loaded from the CD**: the game goes
-straight to the level's sound effects (command 53) and starts. Anything else (first start, a movie
+straight to the level's sound effects (command 53, only for a level without its own sound bank since
+SFX-4) and starts. Anything else (first start, a movie
 or the cart test's load test used the slot, a load cut off by power-off, a different disc) loads
 from the CD as before and writes a new record. **A + B + C** held = always from the CD. Same rules as
-CAVES-1's Caves record at `0x3F0300` (the title level, cart `0x080000`).
+CAVES-1's Caves record at `0x3FE000` (was `0x3F0300`; the title level, cart `0x080000`).
 
 **The fast load advantage.** Emulation, Lost Valley, Current Position after a power cycle: **about
 28 s → about 3 s** (the checksum read of the level, ~1.9 MB at most, and the sound effects). Within
@@ -373,7 +378,7 @@ What changed is in the game (engine patch `engine/openlara-sfx.patch`, tools `to
 | What | Commands used | Notes for other stacks |
 |---|---|---|
 | **SFX-1**, Sega CD PCM effects (the fallback) | **48** pad request + effect in the high byte, COMM2 = volume; now **up to 3 times per frame** (was once) | A second or third command 48 in the same frame is allowed: it plays the effect and reads the pad again (the game keeps the first pad value). The Sub-CPU driver plays 8 channels. |
-| SFX-1 packs | **53** load sound pack (`SFX<level>.BIN`) | Pack format unchanged (`KSFX`, at most 31 effects, 64 KB wave RAM); only the packer's choice of samples changed. |
+| SFX-1 packs | **53** load sound pack (`SFX<level>.BIN`) | Pack format unchanged (`KSFX`, at most 31 effects, 64 KB wave RAM); only the packer's choice of samples changed. **SFX-4:** not sent for a level whose file has its own sound bank (SFX-2), so no file open + read and no music stop for it. |
 | **SFX-2**, all effects through the **32X PWM** (the default) | none on the Sega CD | The samples are appended to each level file (`.PKD`) and loaded into the cart by the normal level load (**38** + **46**). The mixer runs on the **slave SH2** in its DMA 1 interrupt (`sec_dma1_handler`, the existing crt0.s vector, level 4); the slave now runs at interrupt level 3 instead of 13. Its 32X interrupts stay off (INTMSK 0). The movie player stops the mixer while a movie plays. |
 | **MUSIC-1**, Options → Sound → Music | **45** play / **54** stop | The switch now stops the CD audio and keeps it off (cut-scene voices included). |
 
@@ -381,4 +386,29 @@ What changed is in the game (engine patch `engine/openlara-sfx.patch`, tools `to
   from the CD. RESUME-1 (section 8) covers the whole file, samples included.
 - **Status: run on the console** (Sega CD + 32X + RAM cart, 21 Oct 2026, the owner's report): the effects
   play through the PWM at the right volume.
+
+## 10. OpenLara CD32X-REV STREAM-1: the drive reads ahead during commands 46 / 47 (Sub-CPU `main.c`, switched)
+
+**Boot stack: one change, behind a switch.** The Sub-CPU `main.c` gets the drive read-ahead from
+OpenJazz CD32X R7 / Hurrican CD32X P2b, inside `#if OL_STREAM`. `subcpu/Makefile` passes it in
+**HWFLAGS** (`STREAM ?= 1`, so it is on). `make cd STREAM=0` or `STREAM=0 bash build.sh` builds
+`main.c` exactly as before (the preprocessed source is identical). No new command number, and no
+change to `hw_md.s`, `scd.c`, the boot block, CDLOADER, `crt0.s` or `src-md/`: the two BIOS stream
+calls are inline assembly in `main.c`.
+
+| What | Before | With STREAM-1 |
+|---|---|---|
+| Command **46** / **47** chunk (32 KB) | `scd_sub_read`: CDCSTOP + ROMREADN for that chunk (a seek every chunk) | `cd_chunk_read`: ROMREADN once to the end of the file; each sector's header (minute/second/frame) is checked, and a missed or wrong sector starts the read again at the sector wanted. After 64 failures it falls back to `scd_sub_read` |
+| Between chunks | the drive is stopped | `cd_pump` takes the sectors that arrive into a 64 KB ring (`st_buf`, 32 sectors) while the 68000 copies to the cart, during the read-back compare and while the Sub-CPU waits for the next command |
+| Everything else that uses the drive (`scd_sub_read`, `scd_open_file`, `scd_bios_call`: file opens, PCM packs, CD audio) | — | stops the stream first (macros), so the next chunk starts afresh |
+
+- **BIOS calls used** (`jsr 0x5F22`): CDCSTOP `0x89`, ROMREADN `0x20`, CDCSTAT `0x8A`, CDCREAD `0x8B`
+  (CDC destination set to the Sub-CPU: `0xFF8004` bits 8–10 = 3), CDCTRN `0x8C`, CDCACK `0x8D`.
+- **What the SH2 sees: nothing new.** Same commands, same replies, same COMM registers. Only the
+  time a level takes to load changes.
+- **Memory:** the ring adds 64 KB to the Sub-CPU program's bss (program RAM ended at `0x1E7A0`, now
+  about `0x2E7A0`; the stack is at the top, `0x80000`).
+- **Other stacks:** the same code is in OpenJazz CD32X (R7) and Hurrican CD32X (P2b), both run on
+  the console. How it works and the load times measured there: `CD32X_STREAM_READ.md`. Any game on this stack that loads with command 46 can take it the same way.
+- **Status: compile-checked (both settings); not yet run in emulation or on the console.**
 
