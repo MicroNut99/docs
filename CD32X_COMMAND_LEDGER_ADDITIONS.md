@@ -475,3 +475,23 @@ copy as before). No new command number, no listener change: it uses the existing
   enables). Command 61 (the save area) still uses command 33.
 - Status: run in emulation (levels and movies). Not yet on the console.
 
+
+## 14. OpenLara CD32X-REV UB-1 and PICS-1: more files through command 38 (Sub-CPU `main.c`, switched)
+
+**UB-1, boot stack: one change, behind a switch** (`#if OL_UB`, `subcpu/Makefile` HWFLAGS `UB ?= 1`;
+`UB=0` builds the list as before). No new command number.
+
+- `ol_level_files[]` gets four more names after `LEVEL10C.PKD`: `EGYPT.PKD`, `CAT.PKD`, `END.PKD`,
+  `END2.PKD` (Unfinished Business, LevelID 21–24). So command 38 with COMM2 = **121–124** opens them
+  into the level slot (and 221–224 into the Caves slot, never used), exactly like levels 100–120.
+- Without the switch, 121–124 fall through to `IMAGE121.RAW` … (not on the disc): length 0. OpenLara
+  asks for file 121 once at start and leaves Unfinished Business out of the passport when it is 0.
+
+**PICS-1: no Sub-CPU change.** Command 38's existing fallback opens `IMAGEn.RAW` for any index not
+in another range and command 46 writes it to cart **n × 128 KB**. OpenLara uses **17, 18, 19, 21, 22**
+(area loading pictures) and **23–27** (credit pages): cart `0x220000`–`0x37FFFF`, inside its level
+slot, loaded just before the level (which overwrites them) or after the END movie. Never 16 (a pack
+name) or 20 (`OPENLARA.32X`). Each file is 72 192 bytes (3 chunks). Another game on this stack using
+`IMAGEn.RAW` must keep n × 128 KB inside its own free cart space.
+
+- Status: run in emulation. Not yet on the console.
