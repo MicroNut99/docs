@@ -289,3 +289,25 @@ No change to the Sub-CPU `main.c`, `hw_md.s`, the boot block, CDLOADER, `crt0.s`
 The only boot stack addition for OpenLara CD32X-REV is command **68** (section 7), in the `CART=`
 test builds only. Code: MicroNut99/OpenLaraCD32X-REV, branch `cart-test-8mb-16mb`,
 `engine/openlara-opt2.patch` (`main.cpp`: `slotInCart`, `slotRecord`, `osLoadLevel`), `docs/OPT.md`.
+
+## 9. OpenLara CD32X-REV SFX-1/2 and MUSIC-1: sound effects and the music switch (no new command)
+
+**Boot stack: nothing added.** No change to the Sub-CPU `main.c`, `hw_md.s`, the boot block, CDLOADER,
+`crt0.s` or `src-md/`. The only boot stack addition for OpenLara CD32X-REV is still command **68**
+(section 7, `CART=` test builds only).
+
+What changed is in the game (engine patch `engine/openlara-sfx.patch`, tools `tools/sfx_bank.py`,
+`tools/make_sfx_packs.py`; MicroNut99/OpenLaraCD32X-REV, branch `cart-test-8mb-16mb`, `docs/SFX.md`):
+
+| What | Commands used | Notes for other stacks |
+|---|---|---|
+| **SFX-1**, Sega CD PCM effects (the fallback) | **48** pad request + effect in the high byte, COMM2 = volume; now **up to 3 times per frame** (was once) | A second or third command 48 in the same frame is allowed: it plays the effect and reads the pad again (the game keeps the first pad value). The Sub-CPU driver plays 8 channels. |
+| SFX-1 packs | **53** load sound pack (`SFX<level>.BIN`) | Pack format unchanged (`KSFX`, at most 31 effects, 64 KB wave RAM); only the packer's choice of samples changed. |
+| **SFX-2**, all effects through the **32X PWM** (the default) | none on the Sega CD | The samples are appended to each level file (`.PKD`) and loaded into the cart by the normal level load (**38** + **46**). The mixer runs on the **slave SH2** in its DMA 1 interrupt (`sec_dma1_handler`, the existing crt0.s vector, level 4); the slave now runs at interrupt level 3 instead of 13. Its 32X interrupts stay off (INTMSK 0). The movie player stops the mixer while a movie plays. |
+| **MUSIC-1**, Options → Sound → Music | **45** play / **54** stop | The switch now stops the CD audio and keeps it off (cut-scene voices included). |
+
+- **Level files are bigger** with SFX-2 (200–500 KB of samples each), so a new level loads about 30% longer
+  from the CD. RESUME-1 (section 8) covers the whole file, samples included.
+- **Status: run on the console** (Sega CD + 32X + RAM cart, 21 Oct 2026, the owner's report): the effects
+  play through the PWM at the right volume.
+
