@@ -234,5 +234,5 @@ No new SH2 or MD numbers on the Kobo stack. Status of the two cases:
 If the ledger lists the Kobo stack, the entry would be: **command 46, COMM2 `0xF8nn` page register, `0xF0nn` file
 slot**, plus a note that **68 = act file → Genesis planes** there.
 
-Source: MicroNut99/sonic2011cd32x (local commits, not pushed): `cd32x/sub_main.c`, `cd32x/engine/plat_mars.cpp`
-("THE PRELOAD"), `docs/R4G_NOTES.md`, `docs/R4G_16MB_REPORT.md`.
+In the Sonic port: `cd32x/sub_main.c`, `cd32x/engine/plat_mars.cpp` ("THE PRELOAD"), `docs/R4G_NOTES.md`,
+`docs/R4G_16MB_REPORT.md`.

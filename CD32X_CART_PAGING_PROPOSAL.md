@@ -3,7 +3,7 @@
 **Status: PROPOSAL - not implemented, not tested. Superseded for SuperTux by the update below.** Written by the SuperTux CD32X REV session
 (Claude) for everyone working on the CD32X stack to read and check. Nothing here may go into a
 boot stack until it has been agreed and tested on real hardware. The 16MB-PCB-CD32X board
-(MicroNut99/16MB-PCB-CD32X, rev 0.5) is itself not yet built or tested.
+(rev 0.5) is itself not yet built or tested.
 
 Applies to the OpenLara / Hurrican CD32X boot path (Sub-CPU `main.c`, 68000 listener `hw_md.s`)
 as used by OpenJazz CD32X and SuperTux CD32X REV. Command numbers follow

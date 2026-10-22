@@ -249,7 +249,7 @@ therefore clears COMM4 when it ends the floor. Another stack reusing the records
 - emulation: the title, its fade to the menu, special stages 1, 2 and 6.
 - **console: works** (Sega CD + 32X + 16 MB cart, 21 Oct 2026, the owner's report).
 
-Code: MicroNut99/Sonic2011CD32X, branch `r3`, `docs/R5G_NOTES.md`.
+Details: the Sonic port's `docs/R5G_NOTES.md`.
 
 **Sonic R5H (22 Oct 2026): command 80 op 4 answered first.** No new number, no new op, no listener change.
 - **`cd32x/sub_main.c`, op 4:** the Sub-CPU now writes its answer (COMM12) and COMM0 = 0 as soon as it has read the
@@ -270,11 +270,11 @@ Code: MicroNut99/Sonic2011CD32X, branch `r3`, `docs/R5G_NOTES.md`.
   - emulation: special stages 1, 2, 6, 7 and the title;
   - **console: not burned yet.**
 
-Code: MicroNut99/Sonic2011CD32X, branch `r3`, `docs/R5H_NOTES.md`.
+Details: the Sonic port's `docs/R5H_NOTES.md`.
 
 ## 7. SH2 → Sub-CPU command 68: cart page, window 1 (OpenLara CD32X-REV)
 
-For the paged 8 / 16 MB SRAM cart (MicroNut99/16MB-PCB-CD32X): the SH2s can't reach the cart's
+For the paged 8 / 16 MB SRAM cart (the 16MB-PCB-CD32X board): the SH2s can't reach the cart's
 page register, so the Sub-CPU has the 68000 write it. Design: [CD32X_SRAM_PAGING_PROPOSAL.md](CD32X_SRAM_PAGING_PROPOSAL.md)
 (variant B); code: MicroNut99/OpenLaraCD32X-REV, branch `cart-test-8mb-16mb` (`subcpu/main.c`,
 `CART-1`).

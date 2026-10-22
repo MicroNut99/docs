@@ -1,7 +1,7 @@
 # CD32X – Paged 8 / 16 MB cart: the three stack proposals, compared (Jazz / Hurrican view)
 
 **Status: review note, untested.** Three sessions wrote stack proposals for the
-[16MB-PCB-CD32X](https://github.com/MicroNut99/16MB-PCB-CD32X) on the same day:
+16MB-PCB-CD32X board on the same day:
 
 | File | From | Listener change |
 |---|---|---|
