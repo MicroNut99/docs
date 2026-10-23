@@ -99,11 +99,12 @@ command numbers.
 | 0-4 | 0x3F0000-0x3F4FFF | OpenJazz CD32X: `openjazz.cfg`, `SAVE.0`-`SAVE.3` |
 | 5-9 | 0x3F5000-0x3F9FFF | Holiday Hare '95 (OpenJazz CD32X) |
 | 10 | 0x3FA000 | OpenJazz CD32X port settings (J19) |
+| 11 | 0x3FB000 | **DOOM CD32X Fusion (D32XR CD32X)**: the game's saves (section 15) |
 | 13 | 0x3FD000 | **SuperTux CD32X REV5**: options, high scores, 7 game slots ("STX2", 368 bytes) |
 | 14 | 0x3FE000 | **OpenLara CD32X-REV** (SAVE-2): the Caves record `'OLCV'` at `0x3FE000` and the level slot record `'OLLV'` at `0x3FE010` (section 8). Rewritten after every level load from the CD |
-| 15 | 0x3FF000 | **Cart test scratch** (OpenLara CD32X-REV `CART=` builds; SuperTux CD32X REV `CART_MB=8/16` builds - its size probe writes 8-byte markers here on pages 1, 2 and 6 at every start): a 4 KB test pattern per page, written and read back at every start of a test disc. Never holds data worth keeping; a game must not store anything here |
+| 15 | 0x3FF000 | **Cart test scratch** (OpenLara CD32X-REV `CART=` builds; SuperTux CD32X REV `CART_MB=8/16` builds - its size probe writes 8-byte markers here on pages 1, 2 and 6 at every start): a 4 KB test pattern per page, written and read back at every start of a test disc. Never holds data worth keeping; a game must not store anything here. D32XR CD32X (section 15) also writes its board probe markers and a `D32XR PRELOAD OK` hint here; losing it only makes the next boot recheck |
 
-Free: 11, 12. (OpenLara CD32X uses piece 0 and on: `0x3F0000` settings, `0x3F0400` saved game; it and
+Free: 12. (OpenLara CD32X uses piece 0 and on: `0x3F0000` settings, `0x3F0400` saved game; it and
 OpenJazz share the cart only one at a time. Its Caves and level slot records were at `0x3F0300` /
 `0x3F0310` in piece 0 until SAVE-2 moved them to piece 14, so a level load no longer rewrites the piece
 that holds the settings and the saved game. A build with SAVE-2 ignores the old records: it loads Caves
@@ -495,3 +496,55 @@ name) or 20 (`OPENLARA.32X`). Each file is 72 192 bytes (3 chunks). Another game
 `IMAGEn.RAW` must keep n × 128 KB inside its own free cart space.
 
 - Status: run in emulation. Not yet on the console.
+
+## 15. DOOM CD32X Fusion (D32XR CD32X): the game from the CD into the 8 / 16 MB cart (no new command number)
+
+D32XR (DOOM CD32X Fusion v3.0, viciious/d32xr) booted from the disc on this stack, Hurrican CD32X
+P2a2's: Sub-CPU `main.c`, 68000 listener `hw_md.s`, SH2 loader `cdloader_sh2.c`. Code:
+MicroNut99/d32xr_cd32x (`cd32x/`, built by `build.sh`; `README.md` "The boot stack").
+
+**Boot stack: no new command number, no new 68000 routine.** Everything below is inside existing
+commands, behind `D32XR_CD` (Sub-CPU, `GAME_DEFS="-DD32XR_CD=7"`) and `CDL_D32XR_PAGE` (SH2 loader,
+`LOADER_DEFS`), with the paged-cart code of section 7 (`CART_DEFS=-DCART_PAGED`). Without them the
+stack builds as before.
+
+| Command | What D32XR CD32X adds | Where |
+|---|---|---|
+| SH2 **38** open | file **20** = `D32XR.32X` (the game's 4 MB ROM, cart 0); files **300 + n** = the preload files (`preload_names.h`, made by `tools/make_preload.py`: SOUNDS.WAD, DOOM.WAD, DOOM_II.WAD, RESURRECTION.WAD). With COMM2 bit 15 the destination comes in COMM8L, as section 7's paged builds | `main.c` |
+| SH2 **46** chunk → cart | with a destination given (38 bit 15), the cart offset wraps in the 4 MB (`& 0x3FFFFF`): a preload file that goes on into the next page starts there at offset 0, so "where chunk 0 would go" can be below 0 | `main.c` |
+| SH2 **68** cart page, window 1 | used as section 7 (page 1-7) for the board probe and the preload copy (pages 2-6) | – |
+| SH2 **60** start D32XR | window 1 is set to page **7** first (`D32XR_CD`): the game's second 2 MB. The game runs from pages 0 + 7 | `main.c` |
+| MD **35** `start_d32xr` | the backdrop is set to **black** (was the D32X M1 debug checkpoint red: a red flash around the screen as the game starts) | `hw_md.s` |
+| SH2 **51** chunk → frame buffer | the loading screen (`IMAGE.RAW`, `tools/make_splash.py`): the picture, the 256-colour palette and two text lines after it ("FIRST TIME: COPYING DOOM INTO THE RAM CART", "THIS DISC NEEDS THE 8 MB OR 16 MB RAM CART"). Only the gold part of the progress bar is drawn, only while copying | `cdloader_sh2.c` |
+
+**Every boot (SH2 loader, `CDL_D32XR_PAGE`):**
+1. **Board probe**: markers in save piece 15 of pages 1, 2 and 6 (CMD 68, then 58 + 61), read back by the SH2 through window 1: 4, 8 or 16 MB. A 4 MB cart is refused (the game's 4 MB would overwrite the save area).
+2. **Checksums**, read by the SH2 straight from the cart (cache-through), of the ROM in pages 0 + 7 and of every preload file in pages 2-6, against the ones the build computed (`preload.h`). A + B + C held = copy everything again.
+3. **Copy only what differs** (CMD 38 + 46, the page set with 68 between chunks), with the text and the gold bar.
+4. **Record**: `D32XR PRELOAD OK` in save piece 15 of page 1 (CMD 58 + 61). The game reads the WADs from the cart only when it is there.
+5. CMD 60. **D32XR then restarts the Sega CD with its own Sub-CPU program** (mega CD mode 2 addresses: BIOS `0x000000`, Program RAM window `0x020000`, Word RAM `0x200000`), so this stack's Sub-CPU commands end here. The game's own Sub-CPU protocol (`d32xr/src-md/cd/crt.s`: `D` disc info, `P` play track, `S` stop, `H` read sectors, `Q` / `R` streamed PCM ...) is D32XR's, through `0xA1200E`, not this ledger's COMM0 numbers.
+
+**The cart (16 MB board):**
+
+| Page (2 MB) | Holds |
+|---|---|
+| 0 | the game, first 2 MB (window 0) |
+| 1 | the shared save area (section 5) and other titles' data: untouched except pieces 11 and 15 below |
+| 2-6 | the preload: 63 × 32 KB used per page (0x000000-0x1F7FFF of the window), the files back to back across pages |
+| 7 | the game, second 2 MB (window 1 while the game runs) |
+
+Pages 2-6 overlap other titles' paged data (SuperTux's level packs, section 7a). They share the
+cart one at a time: the checksums at every boot find what another title overwrote and copy it again.
+
+**Save area pieces (section 5):**
+
+| Piece | Cart | Owner |
+|---|---|---|
+| **11** | 0x3FB000 (page 1) | **DOOM CD32X Fusion (D32XR CD32X)**: the game's saves (its save RAM, `d32xr/src-md/crt0.s` `read_sram` / `write_sram`, through RV = 1) |
+| 15 | 0x3FF000 | the board probe's markers (pages 1, 2, 6), as SuperTux's; and the record `D32XR PRELOAD OK` on page 1. **The record is only a hint**: when another title's test writes piece 15, the next boot rechecks the sums and writes it again; nothing is lost |
+
+So piece 11 is no longer free: free pieces are now **12** only.
+
+- **Status:** run in emulation (ares with the 16 MB board emulated): first boot copy, later boots
+  checking only, the copy after a damaged WAD, the game, its CD audio and its streamed PCM music.
+  **Not yet run on the console.**
