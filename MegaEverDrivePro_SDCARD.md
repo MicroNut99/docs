@@ -119,6 +119,41 @@ there, so a game must checksum what it reads (`[sdcard/]` records: magic, length
 
 ## 4. Preloading the PSRAM from the SD card: the design
 
+### 4.0 The simplest form: a launcher file that carries the data (31 Oct 2026)
+
+The EverDrive menu copies a `.32X` from the card into the PSRAM, linearly from the start of the 16 MB,
+before it starts it. So the cheapest preload needs no EDIO code at all: **make `EDCD_<GAME>.32X` big**,
+with the game's packs behind its first 512 KB at the offsets the game's own CMD 38 / 46 would fill (file
+offset *n* × 0x80000 = bank *n* = the launcher's linear window map). The menu wipes the PSRAM first and
+loads the file after, so what the file holds is what the game finds, and the ports' content checks (§4.3)
+hit without a change to the game or the stack. `edboot/pack_edcd.py` in the BootCamp builds such a file
+(`--at offset file`, or `--d32xr plan.json D32XR.32X <disc files>` for DOOM CD32X Fusion's layout).
+
+What stands in the way, in order:
+
+1. **Bank 0 is the launcher**, and the game ROM also goes to cart 0, so the ROM's first 512 KB cannot be
+   packed; the loader copies that from the CD as before (BootCamp's always copies the whole ROM; D32XR's
+   whole-ROM checksum fails on bank 0 and copies all 4 MB - a 14 MB first boot becomes a 4 MB one; its
+   `LOADER_CHECK` per-chunk sums could cut that to 512 KB with a loader change that is D32XR's, not the
+   stack's). The `EDCD_W0=<bank>` switch (window 0 shown from another bank) is the other way out; it is
+   in docs/12 and has not run on the console.
+2. **Unmeasured: does the OS load a multi-megabyte `.32X` in full in its 32X mode?** For `SEGA SSF`
+   Mega Drive ROMs that is what extended SSF exists for (up to 16 MB, `mask_off`), but krikzz's public
+   source has no 32X mapper to read the rule from, and every `.32X` run so far was tiny. **`edpack/` in
+   the BootCamp is the probe**: `edtest`'s 68000 side with a read-only SH2 program, the ROM padded to
+   14 MB with a per-bank pattern, each bank read back by the 68000 and both SH2s with `W` off. The screen
+   says `LOADED n OF 14 MB` and, past that, whether the PSRAM shows another bank's pattern (a mirror or a
+   size mask) or the wipe. No disc, one run. Timing the menu's load with a watch gives the cost per launch.
+3. **Stop at 14 MB** (banks 0-27): 31 is the battery RAM; krikzz's layout puts the OS's data buffer, save-
+   state buffer and menu at the top of the PSRAM (`0xF00000` up).
+4. **Every launch reloads the whole file** (nothing survives the menu), at the OS's own SD-to-PSRAM speed -
+   unmeasured; the probe measures it.
+5. OpenLara's records live in bank 31, which the file cannot carry: it needs the record recomputed at
+   start, or its loader to checksum the slot.
+
+If the probe says the whole file arrives, §4.1-4.5 below are the way to load *more* than fits in one file,
+or to load at run time; for a first game they are not needed.
+
 ### 4.1 Where to do it: in the launcher, before the Sega CD starts
 
 `EDCD_<GAME>.32X` is a 32X cartridge ROM that the EverDrive menu starts (docs/12). At that moment:
