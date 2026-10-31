@@ -73,12 +73,13 @@ Hurrican path: 34 `set_vdp_reg` (Kobo K19), **35 `start_d32xr`** (D32X M1), **36
 **37 `copy_vram_col`** (REV4), `MD_CMD_END` 38.
 
 **Each game's listener numbers its own routines above 35** (31 Oct 2026 audit). They are listed here so
-that nobody mistakes one game's 38 for another's; the BootCamp's own `hw_md.s` stops at 35
-(`MD_CMD_END, 36`: routines 1-35, no SuperTux routines in it):
+that nobody mistakes one game's 38 for another's. The BootCamp's own `hw_md.s` stops at 35 (`MD_CMD_END, 36`:
+routines 1-35) unless it is built with `GENPLANE=1`; then it has SuperTux's 36 / 37 and `MD_CMD_END` 38
+(section 20):
 
 | Listener | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | `MD_CMD_END` |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| BootCamp `stack/subcpu/hw_md.s` | - | - | - | - | - | - | - | - | - | - | 36 |
+| BootCamp `stack/subcpu/hw_md.s` | - (`GENPLANE=1`: `set_vsram`) | - (`GENPLANE=1`: `copy_vram_col`) | - | - | - | - | - | - | - | - | 36 (`GENPLANE=1`: 38) |
 | SuperTux REV | `set_vsram` | `copy_vram_col` | - | - | - | - | - | - | - | - | 38 |
 | D32XR CD32X | `set_scroll` (HUR genbg: plane A/B h- and v-scroll in one call) | - | - | - | - | - | - | - | - | - | 37 |
 | OpenJazz REV (`d486f58`) | `set_vsram` | `genbg_load` | `genbg_start` | `genbg_off` | `genbg_cell` | `rv_copy_fast` (R7: cart ↔ Word RAM, 48 bytes a `movem`, RV = 1) | `bmd_setup` | `bmd_queue` | `bmd_off` | `cmd_nop` (free) | 46 |
@@ -108,7 +109,7 @@ move OpenJazz to MD 38-41 was not carried out: OpenJazz REV kept 37-40.
 | 57 / 58 | buffer word get / put (COMM2 = word 0-2047 of the 4 KB buffer; 58 fills it for 59, 61 and every bank-31 command of section 16) |
 | 60 | D32X: start D32XR from the cart (never returns). D32XR CD32X sets window 1 to page 7 first (section 15) |
 | 61 | save area: 4 KB piece → cart 0x3F0000 + (COMM2 & 15) × 4 KB, read back; reply COMM12 1 ok. `SLOTS=1`: bit 8 → OpenLara's slot area, reply 0x101 (section 11). **ED launcher builds:** the same piece → bank 31, reply `1 \| 0x200` (section 16) |
-| **62–67** | **the Genesis picture (section 1)** - SuperTux REV, Rayman (`RAY_GENVDP`, 62-67 as SuperTux's), Dracula X CD32X (`GENPLANE=1`, 62-67 as SuperTux's, section 20). **62 = "save piece in" on OpenLara EDCD, OpenJazz REV, Hurrican** (section 16); **62 = "Genesis background" on D32XR** (COMM2 1 load + show from cart offset COMM8L (`GBG1` pack: tiles → VRAM `0x1000`, map → plane B `0xE000`, CRAM line 3), 2 scroll (COMM8 h, COMM12 v → MD 36), 0 off; reply COMM12 1) |
+| **62–67** | **the Genesis picture (section 1)** - **the BootCamp stack itself with `GENPLANE=1` (since `252265a`, 31 Oct 2026, section 20)**, SuperTux REV, Rayman (`RAY_GENVDP`, 62-67 as SuperTux's), Dracula X CD32X. **62 = "save piece in" on OpenLara EDCD, OpenJazz REV, Hurrican** (section 16); **62 = "Genesis background" on D32XR** (COMM2 1 load + show from cart offset COMM8L (`GBG1` pack: tiles → VRAM `0x1000`, map → plane B `0xE000`, CRAM line 3), 2 scroll (COMM8 h, COMM12 v → MD 36), 0 off; reply COMM12 1) |
 | **67** | OpenJazz REV: Genesis plane (section 19) - not SuperTux's columns |
 | **68** | **cart page, window 1 (section 7)**: 8 / 16 MB SRAM cart, OpenLara CD32X-REV test builds; SuperTux CD32X REV `CART_MB=8/16` builds (REV11-16MB-T1); OpenJazz REV, Hurrican, D32XR, Rayman paged builds. `CART=ED`: pages 1-6 only, four word writes to CTRL4-7 (section 16) |
 | **69** | OpenJazz REV: unpack a compressed pack page → page (section 19). **SuperTux REV ED builds: "save piece in"** (section 16) |
@@ -139,9 +140,9 @@ should take numbers free on both (76 and up, 31 Oct 2026).
 | 47 | chunk compare | same | same | same | cart → frame buffer | - |
 | 60 | start D32XR | - | - | - | - | CD find |
 | 61 | save piece → cart (ED: → bank 31) | same | same | same | - | CD read |
-| 62 | VRAM word (SuperTux's, when merged) / **save piece in** (OpenLara EDCD, Hurrican) / **Genesis background** (D32XR, MD 36) | VRAM word | **save piece in** (ED) | VRAM word | - | SRAM read |
-| 63-66 | Genesis picture (SuperTux's) | Genesis picture | - | Genesis picture | - | 63 SRAM write |
-| 67 | - | cart → VRAM columns | **Genesis plane** load / show / off / cell | cart → VRAM columns | - | - |
+| 62 | **VRAM word (`GENPLANE=1`, since `252265a`)** / **save piece in** (OpenLara EDCD, Hurrican) / **Genesis background** (D32XR, MD 36) | VRAM word | **save piece in** (ED) | VRAM word | - | SRAM read |
+| 63-66 | Genesis picture (`GENPLANE=1`) | Genesis picture | - | Genesis picture | - | 63 SRAM write |
+| 67 | cart → VRAM columns (`GENPLANE=1`) | cart → VRAM columns | **Genesis plane** load / show / off / cell | cart → VRAM columns | - | - |
 | 68 | cart page, window 1 | same | same | same | act file → Genesis planes | - |
 | 69 | - | **save piece in** (ED) | **unpack LZ** page → page | - | - | - |
 | 70 | - | - | disc stamp | - | - | - |
@@ -739,7 +740,21 @@ These were only in CD32X-BootCamp docs/03's clash table until now. All in `cd32x
   through it. 69 reads COMM12 as an input the same way.
 - Status: R1 ran on the console (20-22 fps); R7-R11 are emulation only (BootCamp docs/07, 29 Oct 2026).
 
-## 20. Dracula X CD32X (M1 test 1, 31 Oct 2026): SuperTux's 62-67 on the BootCamp stack, run by a game in ares
+## 20. SuperTux's 62-67 in the BootCamp stack (`GENPLANE`), run by a game in ares (31 Oct 2026)
+
+**Update, 31 Oct 2026: merged into the BootCamp stack** at the owner's request (CD32X-BootCamp `252265a`).
+- **Where:** `stack/subcpu/main.c`, `hw_md.s`, `Makefile`, behind `GENPLANE ?= 0`. Same numbers and meanings as
+  below.
+- **Switch off:** the Sub-CPU program is byte-identical to the stack before (APP.BIN compared), and
+  `BOOT_FILES.md5` is unchanged.
+- **The check:** `tools/check_boot.py` takes the `DX-GENPLANE` blocks out before the hash and checks them
+  exactly against `stack/GENPLANE_BLOCKS.md5`; a changed byte inside a block fails.
+- **Re-run in ares from the BootCamp tree:** the same results as below.
+  - `hello` with `GENPLANE=1`: frames 1800 / 2100 identical to the baseline.
+  - The Dracula X test ROM: `4B10`, 0 of 57,344 pixels off, the plane scrolls.
+- **Status of 62-67 on the BootCamp stack:** emulation. Not yet on the console.
+
+The first test, before the merge (a copy of the stack in DraculaX_32X):
 
 MicroNut99/DraculaX_32X (`c8e8099`) takes SuperTux CD32X REV's Genesis picture commands onto the BootCamp
 stack, unchanged: **no new number, no new meaning.** The commands and listener routines are exactly
