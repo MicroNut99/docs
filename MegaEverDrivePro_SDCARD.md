@@ -148,8 +148,16 @@ What stands in the way, in order:
    state buffer and menu at the top of the PSRAM (`0xF00000` up).
 4. **Every launch reloads the whole file** (nothing survives the menu), at the OS's own SD-to-PSRAM speed -
    unmeasured; the probe measures it.
-5. OpenLara's records live in bank 31, which the file cannot carry: it needs the record recomputed at
-   start, or its loader to checksum the slot.
+5. **OpenLara is the first game to try, and the best case.** Its EverDrive build keeps the Caves record
+   (`OLCV`, piece 14) and the level record (`OLLV`) in bank 31, which the EverDrive writes to `bram.srm`,
+   so they survive the menu; the record holds length + checksum of the data in the cart. The first launch
+   of a packed launcher loads Caves from the CD and writes the record; from the second launch on the
+   packed Caves (`LEVEL1.PKD` at `0x080000`) passes the check and nothing loads - the title is up in the
+   time the engine takes from the CD (<= 384 KB). The level slot (`LEVEL2.PKD` at `0x200000`, or any
+   level named) hits whenever the `OLLV` record names that level. And the whole OpenLara pack ends under
+   4 MB, so it works even if the probe says the OS stops at 4 MB. `pack_edcd.py --openlara <disc files>`.
+   (The earlier draft of §4.3 said OpenLara would not hit: wrong - its records are in bank 31, not in
+   the wiped PSRAM.)
 
 If the probe says the whole file arrives, §4.1-4.5 below are the way to load *more* than fits in one file,
 or to load at run time; for a first game they are not needed.
@@ -218,7 +226,7 @@ content-based:
 
 | Game | Its check | Hits after a preload? |
 |---|---|---|
-| OpenLara REV | Caves record `OLCV` and level record `OLLV` in save piece 14 (length + checksum of the data in the cart), RESUME-1 | only if the launcher also writes the records. On an EverDrive piece 14 is read from **bank 31** (EDSAVE-1), so the launcher writes the two 16-byte records into bank 31 (`0x1080000 + 0xE000 + 0x00 / 0x10`) by `CMD_MEM_WR` — or the game is taught to recompute them |
+| OpenLara REV | Caves record `OLCV` and level record `OLLV` in save piece 14 (length + checksum of the data in the cart), RESUME-1 | **yes, from the second launch**: on an EverDrive piece 14 is in bank 31 (EDSAVE-1), kept in `bram.srm`, so the record the first launch writes after its CD load is still there, and the packed data passes its checksum (§4.0 item 5) |
 | OpenJazz REV, Hurrican | quick check of the ROM (CMD 47 three chunks) and of the common / resident pack (length + sum) | **yes** for the pack; the CDLOADER quick check is a chunk compare against the disc, so it hits too |
 | SuperTux REV | area A kept; 16 MB: `SUMS.BIN` sums per pack at power-on | **yes** |
 | Sonic CD 2011 | `scd_cart_sum` of the engine and the title against the pack's `load_sum` table (R4I) | yes for what the launcher put in; its act files on page 7 cannot be preloaded (page 7 is the OS's on an EverDrive) |
