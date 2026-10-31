@@ -5,7 +5,11 @@ commands added to the boot stack after that ledger was written, so every CD32X p
 registry. As the OpenTyrian addendum asks: **never reuse a number with a different meaning.**
 
 Stack: the OpenLara / Hurrican CD32X boot path (Sub-CPU `main.c`, 68000 listener `hw_md.s`),
-as used by SuperTux CD32X REV.
+as used by SuperTux CD32X REV, and since 29 Oct 2026 packaged as MicroNut99/CD32X-BootCamp (`stack/`).
+
+Last audit against the code: **31 Oct 2026** (BootCamp `a8c8afd`, OpenJazz REV `d486f58`, Hurrican `009912a`,
+SuperTux REV `83032ed`, D32XR `91a7baf`, Rayman `ab5e08b`, Sonic `bc3c30b`): sections 2, 3, 4, 5, 7, 10 corrected,
+sections 16-19 added. Where this file and a repository's `main.c` disagree, the code wins; fix this file and say so.
 
 ## 1. SH2 → Sub-CPU commands 62–66: the Genesis picture (SuperTux CD32X REV2)
 
@@ -38,8 +42,18 @@ Uses:
 - a plane map column (a level scrolling sideways: a new column every 8 pixels): 67 - column k
   goes to address + 2 k, its words 128 bytes apart (a 64-cell-wide map).
 
-**67 status: added in SuperTux CD32X REV4 (15 Oct 2026), boot test pending** (Fusion, then the
-console - as 62–66 were).
+**67 status: added in SuperTux CD32X REV4 (15 Oct 2026)**; SuperTux REV5 and REV10b ran on the console
+with it in the program (CD32X-BootCamp docs/07, 29 Oct 2026). **67 has a second meaning in OpenJazz
+CD32X REV** (Genesis plane: load / show / off / cell, section 19); the two never share a Sub-CPU program,
+but code moved between them must renumber.
+
+**62 has a second meaning too (31 Oct 2026 audit).** On the EverDrive launcher builds of OpenLara
+CD32X-REV (EDSAVE-1, console-proven 26 Oct 2026), OpenJazz REV, Hurrican and D32XR, **62 = "save piece
+in"** (a 4 KB piece of the EverDrive's bank 31 → the Sub-CPU's buffer, section 16). SuperTux, whose 62 is
+`VRAM word`, put its copy of that command on **69** - which is OpenJazz REV's LZ unpack (section 19).
+Both breaches of the "one number, one meaning" rule are recorded here rather than hidden; the numbers
+that clash nowhere for a bank-31 copy are the BootCamp `sdcard/` kit's **74 / 75** (section 18) - and 74
+itself now clashes with Rayman (section 17). Pick from 76 up for anything new.
 
 ## 2. Sub-CPU → 68000 listener commands 36 and 37 (SuperTux CD32X REV2 / REV4)
 
@@ -54,38 +68,89 @@ auto-increment 2, the 32-bit address command in one `move.l`, then the data word
 command loop, never in an interrupt. It adds 48 bytes to the listener (`md_start` …
 `md_init_end`, copied to `0xFF1000`).
 
-The ledger PDF's 68000 list ends at 34 `SET_VDP_REG`, 35 `END`. The current list:
-34 `set_vdp_reg` (Kobo K19), **35 `start_d32xr`** (D32X M1), **36 `set_vsram`** (REV2),
+The ledger PDF's 68000 list ends at 34 `SET_VDP_REG`, 35 `END`. The current list on the OpenLara /
+Hurrican path: 34 `set_vdp_reg` (Kobo K19), **35 `start_d32xr`** (D32X M1), **36 `set_vsram`** (REV2),
 **37 `copy_vram_col`** (REV4), `MD_CMD_END` 38.
+
+**Each game's listener numbers its own routines above 35** (31 Oct 2026 audit). They are listed here so
+that nobody mistakes one game's 38 for another's; the BootCamp's own `hw_md.s` stops at 35
+(`MD_CMD_END, 36`: routines 1-35, no SuperTux routines in it):
+
+| Listener | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | `MD_CMD_END` |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| BootCamp `stack/subcpu/hw_md.s` | - | - | - | - | - | - | - | - | - | - | 36 |
+| SuperTux REV | `set_vsram` | `copy_vram_col` | - | - | - | - | - | - | - | - | 38 |
+| OpenJazz REV (`d486f58`) | `set_vsram` | `genbg_load` | `genbg_start` | `genbg_off` | `genbg_cell` | `rv_copy_fast` (R7: cart ↔ Word RAM, 48 bytes a `movem`, RV = 1) | `bmd_setup` | `bmd_queue` | `bmd_off` | `cmd_nop` (free) | 46 |
+| Rayman (`tools/stack_genvdp.py`, `RAY_GENVDP`) | `set_vsram` | `copy_vram_col` | `set_scroll_vb` (section 17) | - | - | - | - | - | - | - | 39 |
+| Sonic CD 2011 (Kobo path) | - | - | - | - | - | - | - | - | - | - | 35 |
+
+So MD 38 is `genbg_start` in OpenJazz REV and `set_scroll_vb` in Rayman; MD 37 is `copy_vram_col` in
+SuperTux and Rayman but `genbg_load` in OpenJazz REV. The `CD32X_PAGED_CART_STACK_PROPOSAL.md` plan to
+move OpenJazz to MD 38-41 was not carried out: OpenJazz REV kept 37-40.
 
 ## 3. The SH2 command numbers in use (this stack)
 
 | CMD | Meaning |
 |---|---|
-| 38 | open file (length → COMM8) |
-| 44 | clear the Genesis planes (only acknowledged while `SLIDESHOW_DEBUG` is 1, as in this stack) |
+| 38 | open file (length → COMM8L; 0 = not on the disc). The number also picks the cart slot for the next 46 |
+| 44 | clear the Genesis planes. **Always acknowledged** (`main.c` 31 Oct 2026 reading: COMM0 is cleared in every build); the clears themselves (MD 4 / 8) are compiled out while `SLIDESHOW_DEBUG` is 1, which it is in this stack - so 44 does nothing but answer |
 | 45 / 54 | play CD track (bit 15 = once) / stop music |
-| 46 | chunk → cart (bit 15 = no read-back); reply COMM12 |
+| 46 | chunk → cart (bit 15 = no read-back); reply COMM12 = 0 ok / 1 bad. Switches: `FMVRING` bit 14 ring, reply \| 0x100 (section 12); `CARTW` word copy, MD 27 (section 13); `STREAM` read-ahead (section 10) |
 | 47 | chunk compare with the cart (`CMD_CART_TO_FB` also has the value 47 in `main.c`; its branch is never reached) |
-| 48 | pad (+ sound effect in the high byte); reply COMM8 pad, COMM10 ticks |
-| 50 / 51 | file chunk → frame buffer (off-screen / splash) |
+| 48 | pad (+ sound effect in the high byte, COMM2 = its volume); reply COMM8 pad, COMM10 ticks, in one 32-bit write. Answered before any other command |
+| 50 / 51 | file chunk → frame buffer (off-screen 16 KB / splash 32 KB). **Both write COMM12 32 bits wide** (chunk, sectors, a data word): the one place the stack itself overwrites COMM14 |
 | 52 | Genesis display on / off |
-| 53 | load sound pack |
-| 56 / 59 | backup RAM load / save |
-| 57 / 58 | backup RAM word get / put |
-| 60 | D32X: start D32XR from the cart (never returns) |
-| 61 | save area: 4 KB piece → cart 0x3F0000 + COMM2 × 4 KB; reply COMM12 |
-| **62–67** | **the Genesis picture (section 1)** |
-| **68** | **cart page, window 1 (section 7)**: 8 / 16 MB SRAM cart, OpenLara CD32X-REV test builds; SuperTux CD32X REV `CART_MB=8/16` builds (REV11-16MB-T1) |
+| 53 | load sound pack `SFXnn.BIN`; reply COMM12 = number of effects, 0 = failed |
+| 56 / 59 | backup RAM load / save (BIOS `_BURAM`, `GAME_BRAM_NAME`, 64 blocks = half the console's 8 KB; Rayman's `stack_save.py` cuts its own to 5 blocks); reply COMM12 1 ok |
+| 57 / 58 | buffer word get / put (COMM2 = word 0-2047 of the 4 KB buffer; 58 fills it for 59, 61 and every bank-31 command of section 16) |
+| 60 | D32X: start D32XR from the cart (never returns). D32XR CD32X sets window 1 to page 7 first (section 15) |
+| 61 | save area: 4 KB piece → cart 0x3F0000 + (COMM2 & 15) × 4 KB, read back; reply COMM12 1 ok. `SLOTS=1`: bit 8 → OpenLara's slot area, reply 0x101 (section 11). **ED launcher builds:** the same piece → bank 31, reply `1 \| 0x200` (section 16) |
+| **62–67** | **the Genesis picture (section 1)** - SuperTux REV, Rayman (`RAY_GENVDP`, 62-67 as SuperTux's). **62 = "save piece in" on OpenLara EDCD, OpenJazz REV, Hurrican, D32XR** (section 16) |
+| **67** | OpenJazz REV: Genesis plane (section 19) - not SuperTux's columns |
+| **68** | **cart page, window 1 (section 7)**: 8 / 16 MB SRAM cart, OpenLara CD32X-REV test builds; SuperTux CD32X REV `CART_MB=8/16` builds (REV11-16MB-T1); OpenJazz REV, Hurrican, D32XR, Rayman paged builds. `CART=ED`: pages 1-6 only, four word writes to CTRL4-7 (section 16) |
+| **69** | OpenJazz REV: unpack a compressed pack page → page (section 19). **SuperTux REV ED builds: "save piece in"** (section 16) |
+| **70** | OpenJazz REV: the disc's stamp → COMM8L (section 19) |
+| **71** | OpenJazz REV: bonus level floor on the graphics chip (section 19) |
+| **72 / 73** | Rayman: bank-31 save piece out / in at bank offset `0x30000` (section 17) |
+| **74** | **two owners:** Rayman: plane A scroll at the vertical blank (section 17, MD 38); BootCamp `sdcard/`: `SDSAVE_CMD_OUT` (section 18) |
+| **75** | BootCamp `sdcard/`: `SDSAVE_CMD_IN` (section 18) |
+| **80** | Kobo path only (Sonic CD 2011): the stamp floor (section 6). Not on this stack, but keep it clear |
 
-Free: 39–43, 49, 55, 69 and up.
+**Free on this stack (31 Oct 2026):** 39-43, 49, 55, **76-79, 81 and up**. Free on every stack (this one,
+Kobo, OpenTyrian): **76-79, 81 and up.** The old line "69 and up" was behind the code by eight numbers
+(69-75: OpenJazz REV, SuperTux, Rayman, `sdcard/`); BootCamp docs/03 had it right (72-79, 81+) until
+Rayman and `sdcard/` took 72-75 on 26-27 Oct.
 
 ## 4. Numbers that mean something else on the cartridge stack (OpenTyrian, `cart_md.s`)
 
 The OpenTyrian addendum lists its own numbers: **60** CD find, **61** CD read, **62 / 63** SRAM
 read / write (streamed). Those belong to the cartridge stack, not this one, but they clash with
 60–63 here. Code moved between the two stacks must check this table. New commands on either stack
-should take numbers free on both (68 and up).
+should take numbers free on both (76 and up, 31 Oct 2026).
+
+**Every number with more than one meaning, all stacks and forks (31 Oct 2026):**
+
+| CMD | OpenLara path (BootCamp) | SuperTux REV | OpenJazz REV | Rayman | Kobo path (Sonic) | OpenTyrian cart stack |
+|---|---|---|---|---|---|---|
+| 46 | chunk → cart, bit 15 no read-back | same | same | same | 4 forms: `0x00nn`, runs `0x01nn-0x03nn`, `0xF8nn` page, `0xF0nn` slot | - |
+| 47 | chunk compare | same | same | same | cart → frame buffer | - |
+| 60 | start D32XR | - | - | - | - | CD find |
+| 61 | save piece → cart (ED: → bank 31) | same | same | same | - | CD read |
+| 62 | VRAM word (SuperTux's, when merged) / **save piece in** (OpenLara EDCD) | VRAM word | **save piece in** (ED) | VRAM word | - | SRAM read |
+| 63-66 | Genesis picture (SuperTux's) | Genesis picture | - | Genesis picture | - | 63 SRAM write |
+| 67 | - | cart → VRAM columns | **Genesis plane** load / show / off / cell | cart → VRAM columns | - | - |
+| 68 | cart page, window 1 | same | same | same | act file → Genesis planes | - |
+| 69 | - | **save piece in** (ED) | **unpack LZ** page → page | - | - | - |
+| 70 | - | - | disc stamp | - | - | - |
+| 71 | - | - | bonus floor | - | - | - |
+| 72 / 73 | - | - | - | bank-31 piece out / in | - | - |
+| 74 | `sdcard/` **SDSAVE out** | - | - | **scroll at vblank** | - | - |
+| 75 | `sdcard/` SDSAVE in | - | - | - | - | - |
+| 80 | - | - | - | - | stamp floor | - |
+
+A Sub-CPU program belongs to one game, so none of these clashes is a run-time bug; every one is a trap for
+code moved between repositories (the Rayman port merged SuperTux's 62-67 *and* OpenLara's 61/62 save
+pattern into one program - it only avoided the collision by renumbering the saves to 72/73).
 
 ## 5. The RAM cart save area: pieces in use (CMD 58 + 61)
 
@@ -100,11 +165,17 @@ command numbers.
 | 5-9 | 0x3F5000-0x3F9FFF | Holiday Hare '95 (OpenJazz CD32X) |
 | 10 | 0x3FA000 | OpenJazz CD32X port settings (J19) |
 | 11 | 0x3FB000 | **DOOM CD32X Fusion (D32XR CD32X)**: the game's saves (section 15) |
+| 12 | 0x3FC000 | **Hurrican CD32X, EverDrive launcher builds only** (`CART_EDSAVE`, 26 Oct 2026): the high-score table that its CMD 56 / 59 used to put in the Sega CD's backup RAM, rerouted in the Sub-CPU program to **bank-31 piece 12** (`0x800000 + 12 × 4 KB` in the listener's map). The 4 MB cart's piece 12 is never written by Hurrican, but the number is Hurrican's on both: one piece, one owner. The BootCamp's `hello/` borrows it for its boot counter (magic `0x4243`): a demo, not an owner - a game copied from `hello/` must take another piece, and there is none free |
 | 13 | 0x3FD000 | **SuperTux CD32X REV5**: options, high scores, 7 game slots ("STX2", 368 bytes) |
 | 14 | 0x3FE000 | **OpenLara CD32X-REV** (SAVE-2): the Caves record `'OLCV'` at `0x3FE000` and the level slot record `'OLLV'` at `0x3FE010` (section 8). Rewritten after every level load from the CD |
 | 15 | 0x3FF000 | **Cart test scratch** (OpenLara CD32X-REV `CART=` builds; SuperTux CD32X REV `CART_MB=8/16` builds - its size probe writes 8-byte markers here on pages 1, 2 and 6 at every start): a 4 KB test pattern per page, written and read back at every start of a test disc. Never holds data worth keeping; a game must not store anything here. D32XR CD32X (section 15) also writes its board probe markers and a `D32XR PRELOAD OK` hint here; losing it only makes the next boot recheck |
 
-Free: 12. (OpenLara CD32X uses piece 0 and on: `0x3F0000` settings, `0x3F0400` saved game; it and
+**Free: none** (31 Oct 2026; 12 went to Hurrican's ED builds on 26 Oct, see the row). A new game on
+the shared 4 MB cart must share a piece by agreement with its owner, or save to the Sega CD's backup RAM
+(56-59, a few hundred bytes), or - on the EverDrive - to its own launcher's bank 31, where the whole
+256 KB is that launcher's alone (section 16). **On bank 31 the piece numbers are per launcher, not
+shared:** OpenLara's bank-31 piece 0 and OpenJazz's bank-31 piece 0 are in different `bram.srm` files.
+(OpenLara CD32X uses piece 0 and on: `0x3F0000` settings, `0x3F0400` saved game; it and
 OpenJazz share the cart only one at a time. Its Caves and level slot records were at `0x3F0300` /
 `0x3F0310` in piece 0 until SAVE-2 moved them to piece 14, so a level load no longer rewrites the piece
 that holds the settings and the saved game. A build with SAVE-2 ignores the old records: it loads Caves
@@ -298,7 +369,10 @@ the OpenLara CD32X-REV `CART=16` test disc booted and its cart test showed exact
 4 MB result: `FOUND 4MB`, pages 1–6 `SAME AS 7`, page 7 `OK` (every write landed in page 1, as the
 4 MB cart has no page register), `SAVE AREA UNCHANGED`; the game played afterwards. So command 68
 is answered and harmless on the 4 MB cart. **A real
-page switch is untested**: it needs the 8 / 16 MB board.
+page switch is untested on the 8 / 16 MB PCB board.** On the Mega EverDrive PRO the switch itself is
+console-measured (`edpage`, 26 Oct 2026: pages 1-6 through CTRL4-7 word writes, and the listener's `m1_page`
+lifted into the probe), but the games' first EverDrive builds switched no page at all, because this command's
+one even byte to `0xA130F2` is ignored there - section 16 has the fix.
 
 ### 7a. SuperTux CD32X REV: the same command 68 (REV11-16MB-T1, 20 Oct 2026)
 
@@ -416,7 +490,11 @@ calls are inline assembly in `main.c`.
 - **Other stacks:** the same code is in OpenJazz CD32X (R7) and Hurrican CD32X (P2b), both run on
   the console. How it works and the load times measured there: `CD32X_STREAM_READ.md`. Any game on this stack that loads with command 46 can take it the same way.
 - **Status: run in emulation in OpenLara (v1.6 tests): the first level load 40 s → 17 s. Not yet on the
-  console in OpenLara (on the console in OpenJazz and Hurrican).**
+  console in OpenLara (on the console in OpenJazz and Hurrican).** Note (31 Oct 2026): `CD32X_STREAM_READ.md`
+  still says "measured in ares, not yet on the console"; this section and OPENLARA_CD32X_RELEASE.md say
+  OpenJazz R7 / Hurrican P2b ran it on the console. The two were not reconciled; docs/07 in the BootCamp
+  lists OpenJazz R7-R9 as emulation-only. Treat STREAM as **emulation-proven** until a dated console run is
+  written into one of these files. The BootCamp ships it off by default for that reason.
 
 ## 11. OpenLara CD32X-REV SLOTS-1: command 61 writes the save slot area (Sub-CPU `main.c`, switched)
 
@@ -548,3 +626,112 @@ So piece 11 is no longer free: free pieces are now **12** only.
 - **Status:** run in emulation (ares with the 16 MB board emulated): first boot copy, later boots
   checking only, the copy after a damaged WAD, the game, its CD audio and its streamed PCM music.
   **Not yet run on the console.**
+
+## 16. The Mega EverDrive PRO launcher builds (EDCD): saves in bank 31, pages 1-6 (26-27 Oct 2026)
+
+Recorded 31 Oct 2026 from the code of every port; the background (the PSRAM wipe, the `W` rule, the RV
+garbage, the even-byte rule) is in CD32X-BootCamp docs/10 and docs/12 and in `MegaEverDrivePro_SDCARD.md`
+here. A game started from its `EDCD_<GAME>.32X` launcher runs the same stack built with `MODE1=1`; its
+Sub-CPU program is a **copy** of the stack with the game's own switches (`CART_ED`, `CART_EDSAVE`,
+`RAY_SAVE`, `SDSAVE` ...). The disc's own program never has the bank: every "in" command below answers
+without the `0x200` bit there, and the game reads the cart as before.
+
+**The route** (console-proven, OpenLara CD32X-REV EDCD, 26 Oct 2026): CMD 58 per word → the 4 KB
+`bram_buf` → Word RAM `0x0C0000` → MD 33 `chilly_rv_memcpy` with a cart address of
+**`0x800000 + offset`** → the listener's `m1_cart` (MODE1-7, `M1SAVE=1`): bank 31 through window 1,
+RV = 1, SR = 0x2700, `W` on inside the write only → read back the same way → compared. Both SH2s park in
+SDRAM with interrupts masked for the whole command (EDSAVE-4: the EverDrive answers an SH2 cart access
+during RV = 1 with garbage). Only the bank's first 256 KB is reachable (`m1_cart` refuses `0x840000`
+and up): the OS writes that much to `MEGA/gamedata/<launcher>/bram.srm`.
+
+| Game (launcher build) | Out: buffer → bank 31 | In: bank 31 → buffer | Bank offset of piece n | Reply | Code |
+|---|---|---|---|---|---|
+| OpenLara CD32X-REV EDCD (EDSAVE-1) | **61** (COMM2 = piece 0-15; the save area's own numbers) | **62** (COMM2 = piece; `0x8000` = only ask) | `n × 4 KB`; slots at `0x10000` | 61: `1 \| 0x200`; 62: `1 \| 0x200` | `OL_EDSAVE` (branch after `a9f13c4`; cited by `sdcard/README_AI.md`) |
+| OpenJazz CD32X REV | 61 | 62 | `n × 4 KB` | as OpenLara | `cd32x/subcpu/main.c` `CART_EDSAVE` (`ed_page == 1` only) |
+| Hurrican CD32X | 61; **56 / 59 → piece 12** (high scores) | 62 | `n × 4 KB`; 12 for 56/59 | as OpenLara; 56/59: 1 ok | `cd32x/subcpu/main.c` `CART_EDSAVE` |
+| D32XR CD32X | 61 | 62 | `n × 4 KB` | as OpenLara | `cd32x/subcpu/main.c` `CART_EDSAVE` |
+| SuperTux CD32X REV | 61 | **69** (62 is its `VRAM word`) | `n × 4 KB` | as OpenLara | `cd32x/subcpu/main.c` `CART_EDSAVE`, `STX_CART_PAGED` |
+| Rayman CD32X (section 17) | **72** (COMM2 & 15) | **73** | **`0x30000 + n × 4 KB`** | `0x201` / 0 | `tools/stack_save.py`, `RAY_SAVE` |
+| CD32X-BootCamp `sdcard/` (section 18) | **74** (COMM2 = piece 0-63) | **75** (`0x8000` = only ask) | `n × 4 KB` across the whole 256 KB | `0x201` / 0 | `sdcard/subcpu/merge_sdsave.py`, `SDSAVE` |
+
+- The ports' 61 keeps its save-area meaning on the 4 MB cart and goes to bank 31 only in the launcher's
+  program while window 1 shows page 1 (`ed_page == 1`), so a game's saves are page-1 saves on the PCB cart
+  and bank-31 saves on the EverDrive without a change to the engine.
+- **Status.** OpenLara: console (26 Oct, save / load / relaunch / load). OpenJazz REV, Hurrican, SuperTux,
+  D32XR, Rayman, `sdcard/`: ares only (the EverDrive board), code-reviewed for the parked waits. ares holds
+  the SH2s during RV = 1 and keeps the PSRAM across runs, so an ares pass covers neither the garbage rule
+  nor the wipe (BootCamp docs/11).
+
+**Command 68 on the EverDrive (`CART_ED`, 26 Oct 2026, OpenJazz `77e167f`, Hurrican `8382713`, SuperTux
+`7dd1613`, D32XR `fd86f3c`; Rayman through `M1PAGE=1` instead).** Pages 1-6 only (page 7 = banks 28-31,
+the OS's and the battery's; the Sub-CPU refuses 7). The page byte the PCB cart wants is one even byte to
+`0xA130F2`, and **the EverDrive ignores an even-byte write** (`edpage`, console), so an ED build asks the
+listener for **four word writes to `0xA130F8-FE` (CTRL4-7 = banks 4p..4p+3) through MD 27
+`safe_cart_xfer_w`** - MD 26 would write them as bytes. Rayman keeps the one-byte request and lets the
+launcher's listener translate it (`m1_page`, MODE1-9, built with `M1PAGE=1`). Measured on the console:
+`m1_page` and the mapper (`edpage`, 26 Oct); the games' own word-write path is not yet on the console, and
+the CTRL4-7 writes made with `W` on (the `m1_cpy_w` route the games' request takes) are unmeasured
+(Rayman `EVERDRIVE_FINDINGS.md` §6).
+
+## 17. Rayman CD32X (R1, 26-27 Oct 2026): commands 72, 73, 74 and listener routine 38
+
+Rayman CD32X (MicroNut99/Rayman_32X_RAM, `ab5e08b`) runs on the BootCamp's stack with two merges into a
+copy: `tools/stack_save.py` (`RAY_SAVE`) and `tools/stack_genvdp.py` (`RAY_GENVDP`: SuperTux's 62-67 as
+they are, plus one of its own). The BootCamp folder is never touched; with the blocks taken out every file
+is the BootCamp's again.
+
+| CMD | Name | COMM2 | COMM8 / COMM8L | Reply | 68000 routine |
+|---|---|---|---|---|---|
+| 72 | save piece out (bank 31) | piece 0-15 → bank offset `0x30000 + piece × 4 KB` | - | COMM12 `0x201` done / 0 | 33 (the listener's bank-31 route) |
+| 73 | save piece in (bank 31) | piece 0-15 | - | `0x201` / 0 | 33 |
+| **74** | **plane A scroll at the vertical blank** | the H-scroll table's VRAM address (even) | COMM8L = horizontal << 16 \| vertical | - (COMM0 cleared) | **38 `set_scroll_vb`** (new): the 68000 waits for the blank, then writes HSCROLL and VSRAM in one go; the vblank handler touches no VDP register, so nothing comes between |
+
+- Why 74: the Genesis scroll written whenever the 68000 reached the command landed mid-picture; the level
+  layer showed two scroll positions, torn at a line walking down the screen (71 of 150 frames in ares).
+  With 74 posted together with the 32X frame flip: 0 of 180.
+- `MD_CMD_END` is 39 in a `RAY_GENVDP` program (36 `set_vsram`, 37 `copy_vram_col`, 38 `set_scroll_vb`).
+- Status: ares only (R1 is not for the console yet; the R0 disc's console failure was the EDSAVE-4 class,
+  not a stack fault - `EVERDRIVE_REPLY.md`).
+- **74 clashes with the BootCamp `sdcard/` kit's `SDSAVE_CMD_OUT`** (section 18), taken the next day. The
+  kit's numbers are build-time variables; Rayman's 74 is in a built launcher. See section 18 for the
+  resolution asked for.
+
+## 18. CD32X-BootCamp `sdcard/` (27 Oct 2026): commands 74 / 75, and the number clash
+
+`sdcard/subcpu/merge_sdsave.py` puts OpenLara's EDSAVE-1 pair into a copy of the stack behind `SDSAVE ?= 0`
+with the piece numbered across the whole 256 KB of bank 31:
+
+| CMD | Name | COMM2 | Reply | How |
+|---|---|---|---|---|
+| 74 (`SDSAVE_CMD_OUT`) | buffer → bank 31 | piece 0-63 | COMM12 `0x201` done, 0 failed or no bank | MD 33 to `0x800000 + piece × 4 KB`, read back, compared |
+| 75 (`SDSAVE_CMD_IN`) | bank 31 → buffer | piece 0-63; `0x8000` = only ask | `0x201` / 0 | MD 33 |
+
+The SH2 side is `sdcard/sh2/sdsave.c` (`sds_spin` in `.data.sdram`, SR \|= 0xF0, the slave parked with
+COMM4 `0x7A60` / `0x7A61`, bounded waits that refuse the copy rather than run it unparked; records with
+magic, length, FNV-1a, ~sum). Status: ares only (27 Oct 2026); the console-proven part is OpenLara's
+underneath.
+
+**The clash.** The kit's README says "74/75 are free in the stack (it uses 0-68)" - true of the stack,
+but Rayman had taken 74 for its scroll command the day before (section 17), and the ledger's own free
+line still said "69 and up". Rule: one number, one meaning. **Resolution asked for: the kit moves its
+defaults to 76 / 77** (`SDSAVE_OUT=` / `SDSAVE_IN=` in the make, `-DSDSAVE_CMD_OUT=` / `-DSDSAVE_CMD_IN=`
+on the SH2 side, together) before any game ships with it; until then a game that merges both Rayman's
+scroll and the kit must pass the override. This ledger lists 76-79 as free so that the next taker sees the
+move; whoever makes it updates sections 3, 18 and this line.
+
+## 19. OpenJazz CD32X REV (R7-R11, to `d486f58`): commands 67, 69, 70, 71
+
+These were only in CD32X-BootCamp docs/03's clash table until now. All in `cd32x/subcpu/main.c`; 67 and
+71 use the REV listener (`cd32x/subcpu/hw_md.s`, routines 37-44, `MD_CMD_END` 46, section 2).
+
+| CMD | Name | COMM2 | COMM8 / other | Reply | 68000 routines |
+|---|---|---|---|---|---|
+| 67 | Genesis plane (`docs/GENESIS_PLANE.md`) | 1 load the level's plane data, 2 show it, 3 off, 4 a map cell changed | COMM8L = cart offset / camera x << 16 \| y / - / cell << 16 \| tile | COMM12 = the 68000's result | 37 `genbg_load`, 38 `genbg_start`, 39 `genbg_off`, 40 `genbg_cell` |
+| 69 | unpack a compressed pack page → page (`CART_PAGED` only) | source page \| dest page << 8 (1-7 each) | COMM8L = source cart offset (≥ `0x200000`, even), **COMM12 in** = dest offset in 32 KB units (`& 0x7F`, ≥ `0x200000`) | COMM8L = raw length (0 = refused), COMM12 = 0 ok / 1 | 41 `rv_copy_fast` and the page writes |
+| 70 | the disc's stamp | - | - | COMM8L = stamp, 0 unknown (loads the root directory cache first) | - |
+| 71 | bonus level floor (R9: the Sega CD graphics chip, Word RAM 2M) | op 1 load (COMM8L = cart offset), 2 frame (COMM8L = x << 16 \| y, COMM4 = cos, COMM12 = sin, op >> 8 = picture), 3 suspend | as listed | COMM12 = result | 42 `bmd_setup`, 43 `bmd_queue`, 44 `bmd_off` |
+
+- 71 op 2 reads **COMM4 and COMM12 as inputs**, which breaks the "one writer per register" habit of
+  docs/06 for that command: the SH2 writes both before COMM0 and must not expect COMM12 to hold its status
+  through it. 69 reads COMM12 as an input the same way.
+- Status: R1 ran on the console (20-22 fps); R7-R11 are emulation only (BootCamp docs/07, 29 Oct 2026).

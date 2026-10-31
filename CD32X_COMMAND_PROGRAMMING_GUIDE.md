@@ -16,7 +16,7 @@ The same number can mean different things on different stacks. Know which one yo
 
 | Stack | Sub-CPU | 68000 listener | Games | Ledger |
 |---|---|---|---|---|
-| **OpenLara / Hurrican path** | `main.c` | `hw_md.s` (MD 1–37, `MD_CMD_END` 38) | OpenLara, Hurrican, SuperTux | sections 1–3, 5, 7, 8 |
+| **OpenLara / Hurrican path** | `main.c` | `hw_md.s` (MD 1–35 in the BootCamp; each fork numbers its own above 35, ledger section 2) | OpenLara, Hurrican, SuperTux, OpenJazz REV, D32XR, Rayman, the BootCamp | sections 1–3, 5, 7–19 |
 | **Kobo path** | `cd32x/sub_main.c` | `cd32x/kobo/hw_md.s` (MD 1–34, `MD_CMD_END` 35) | Sonic CD 2011 | section 6 |
 | **Cartridge stack** | – | `cart_md.s` | OpenTyrian | section 4 |
 
@@ -26,7 +26,9 @@ The same number can mean different things on different stacks. Know which one yo
 |---|---|---|---|
 | 46 | chunk → cart; bit 15 = no read-back | chunk → cart, 3 forms; `0xF8nn` = cart page, `0xF0nn` = slot | – |
 | 47 | chunk compare | cart → frame buffer | – |
-| 60–63 | D32XR start, save piece → cart, Genesis picture | – (60, 61 absent) | CD find, CD read, SRAM read / write |
+| 60–63 | D32XR start, save piece → cart, Genesis picture; **62 = save piece in from bank 31 on the EverDrive builds of OpenLara / OpenJazz REV / Hurrican / D32XR** (SuperTux: 69) | – (60, 61 absent) | CD find, CD read, SRAM read / write |
+| 67, 69 | SuperTux: VRAM columns, save piece in (ED) | OpenJazz REV: Genesis plane, LZ unpack | – |
+| 74 | Rayman: scroll at vblank; `sdcard/` kit: save out (clash, ledger section 18) | – | – |
 | 68 | cart page, window 1 | act file → Genesis planes | – |
 
 ## 2. The handshake (SH2 side)
@@ -92,8 +94,10 @@ command only as far as its status says:
 
 - **Never reuse a number with a different meaning**, on any stack. The same goes for save pieces.
 - **Nothing in the boot sequence sends a new command.** New commands are sent by the game, after boot.
-- **Cart writes go through the 68000 with RV = 1.** While RV = 1, SH2 cart reads are simply held, so no parking
-  code is needed. After any command that changes cart contents or pages (46, 61, 68), **clear both SH2 caches**
+- **Cart writes go through the 68000 with RV = 1.** On a real cart (4 MB, 16MB-PCB) SH2 cart reads are held while
+  RV = 1, so no parking code is needed. **On the Mega EverDrive PRO they are not held: an SH2 cart access during
+  RV = 1 returns garbage** (`edsave3`, console, 26 Oct 2026), so an EverDrive build keeps both SH2s in SDRAM code
+  with interrupts masked for every 46 / 61 / 68 and every bank-31 command (BootCamp docs/12, EDSAVE-4). After any command that changes cart contents or pages (46, 61, 68), **clear both SH2 caches**
   (the master sends the slave its cache command).
 - **An unanswered command looks like a hang, not an error.** SuperTux's first test discs waited 35–50 s per
   command, because the Sub-CPU was built without the command. Use a timeout, and show a code in COMM12.
@@ -109,7 +113,7 @@ command only as far as its status says:
 - **Writing:** fill the Sub-CPU's buffer word by word with **58** (COMM2 = word index, COMM8 = word), then send
   **61** with COMM2 = piece. The 68000 copies it into the cart and checks it; COMM12 = 1 means OK.
 - **Ownership:** one piece, one owner. Before taking a piece, check section 5's table.
-  - Free as of 21 Oct 2026: **11, 12, 14**.
+  - Free as of 31 Oct 2026: **none** (11 D32XR, 12 Hurrican's ED builds, 14 OpenLara). Share by agreement, use the backup RAM, or - on the EverDrive - the launcher's own bank 31 (ledger section 16).
   - Piece 15 is test scratch: never keep data there.
 - **Write order:** write the marker or magic word last, so a power-off mid-write leaves an invalid record rather
   than a wrong one.
@@ -123,8 +127,9 @@ command only as far as its status says:
 - **Window 0 is never paged.** It holds the program and resident data.
 - **Saves stay on page 1.** Put window 1 back on page 1 before any 58 / 61, or any read of `0x3F0000`.
 - **Clear both SH2 caches** after every page change.
-- **Hardware status:** a real page switch on the 8 / 16 MB board is untested. Only the 4 MB answer, no paging, is
-  confirmed. Run a cart test disc first.
+- **Hardware status:** a real page switch on the 8 / 16 MB PCB board is untested; only the 4 MB answer is
+  confirmed. On the EverDrive the mapper and the listener's `m1_page` are console-measured (`edpage`, 26 Oct 2026),
+  and the page byte must become **word** writes to CTRL4–7 (pages 1–6 only): ledger section 16.
 
 ## 7. Adding a new command
 
@@ -134,8 +139,8 @@ command only as far as its status says:
      boot.
 2. **Pick a number free on every stack.**
    - Check sections 3, 4 and 6.
-   - As of 21 Oct 2026, unused everywhere: **69–79, 81 and up** (39–43, 49 and 55 are free on the OpenLara path
-     only).
+   - As of 31 Oct 2026, unused everywhere: **76–79, 81 and up** (39–43, 49 and 55 are free on the OpenLara path
+     only; 69–75 went to OpenJazz REV, SuperTux, Rayman and the `sdcard/` kit on 26–27 Oct).
 3. **Put the command behind a build switch** in the Sub-CPU (`HWFLAGS`). Leave the normal build byte-identical.
 4. **Add a row to the additions ledger before the disc goes out.** Give:
    - CMD, name, COMM2, COMM8, reply, the 68000 routine, and which stack;
