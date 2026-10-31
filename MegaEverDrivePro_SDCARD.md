@@ -30,6 +30,7 @@ BootCamp's `sdcard/` kit (ares only, 27 Oct 2026); `[OL-EDCD]` is OpenLara CD32X
 | The `C` bit (CTRL0 bit 11, "#CART") changes nothing: the EverDrive stays the cartridge at `0x000000` | console, 25 Oct | `edboot/EDPROBE.BIN`. **krikzz's public RTL agrees**: `map_ssf.sv:68` is `assign cart = ssf_ctrl[0];` to a dangling wire, never to `mout.cart`, so the bit is decoded and goes nowhere |
 | Writes to PSRAM and bank 31 from the 68000 are gated by `W` (`wr_on`); **the MCU's own writes are not** (they come in on the DMA bus, which `mem_ctrl` switches in front of the mapper) | krikzz RTL | `map_ssf.sv:32-45`, `lib_base/var.sv:19-23` |
 | The register writes reach the cart with the 32X on **only with RV = 1** | console, 25 Oct | docs/12 ("writing the mapper with RV = 0 left the EverDrive write-protected") |
+| **The menu loads a `.32X` of 14 MB into the PSRAM whole** (banks 0-27, linearly, file offset = physical address), 32X attached | console, 31 Oct | BootCamp `edpack/`, 0 bad words, 68000 and both SH2s |
 
 So, for a CD32X game started from `EDCD_<GAME>.32X`: the game, its packs and its "resident" data are
 copied from the CD into PSRAM at **every** launch (the menu wiped them), and the saves live in bank 31
@@ -137,7 +138,7 @@ What stands in the way, in order:
    `LOADER_CHECK` per-chunk sums could cut that to 512 KB with a loader change that is D32XR's, not the
    stack's). The `EDCD_W0=<bank>` switch (window 0 shown from another bank) is the other way out; it is
    in docs/12 and has not run on the console.
-2. **Unmeasured: does the OS load a multi-megabyte `.32X` in full in its 32X mode?** For `SEGA SSF`
+2. **MEASURED, 31 Oct 2026, console (Genesis + 32X + Mega EverDrive PRO, `edpack/EDPACK_14MB.32X`, nonce 17E7): the OS loads a 14 MB `.32X` into the PSRAM whole in its 32X mode - banks 1-27 all `OK`, 0 bad words from the 68000 and both SH2s, `LOADED 14 OF 14 MB`.** So a packed launcher works as this section describes, up to 14 MB. The question as it stood before the run, kept for the record: does the OS load a multi-megabyte `.32X` in full in its 32X mode? For `SEGA SSF`
    Mega Drive ROMs that is what extended SSF exists for (up to 16 MB, `mask_off`), but krikzz's public
    source has no 32X mapper to read the rule from, and every `.32X` run so far was tiny. **`edpack/` in
    the BootCamp is the probe**: `edtest`'s 68000 side with a read-only SH2 program, the ROM padded to
