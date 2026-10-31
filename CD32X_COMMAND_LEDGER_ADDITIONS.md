@@ -79,7 +79,7 @@ routines 1-35) unless it is built with `GENPLANE=1`; then it has SuperTux's 36 /
 
 | Listener | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | `MD_CMD_END` |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| BootCamp `stack/subcpu/hw_md.s` | - (`GENPLANE=1`: `set_vsram`) | - (`GENPLANE=1`: `copy_vram_col`) | - | - | - | - | - | - | - | - | 36 (`GENPLANE=1`: 38) |
+| BootCamp `stack/subcpu/hw_md.s` | - (`GENPLANE=1`: `set_vsram`) | - (`GENPLANE=1`: `copy_vram_col`) | - (`VSPLIT=1`: `set_vs_line`, section 21) | - | - | - | - | - | - | - | 36 (`GENPLANE=1`: 38; `VSPLIT=1`: 39) |
 | SuperTux REV | `set_vsram` | `copy_vram_col` | - | - | - | - | - | - | - | - | 38 |
 | D32XR CD32X | `set_scroll` (HUR genbg: plane A/B h- and v-scroll in one call) | - | - | - | - | - | - | - | - | - | 37 |
 | OpenJazz REV (`d486f58`) | `set_vsram` | `genbg_load` | `genbg_start` | `genbg_off` | `genbg_cell` | `rv_copy_fast` (R7: cart ↔ Word RAM, 48 bytes a `movem`, RV = 1) | `bmd_setup` | `bmd_queue` | `bmd_off` | `cmd_nop` (free) | 46 |
@@ -118,10 +118,12 @@ move OpenJazz to MD 38-41 was not carried out: OpenJazz REV kept 37-40.
 | **72 / 73** | Rayman: bank-31 save piece out / in at bank offset `0x30000` (section 17) |
 | **74** | **two owners:** Rayman: plane A scroll at the vertical blank (section 17, MD 38); BootCamp `sdcard/`: `SDSAVE_CMD_OUT` (section 18) |
 | **75** | BootCamp `sdcard/`: `SDSAVE_CMD_IN` (section 18) |
+| **78** | **BootCamp stack, `VSPLIT=1` (needs `GENPLANE=1`): V scroll line split** - the planes' V scroll changed part-way down the screen by the Genesis H interrupt (section 21) |
 | **80** | Kobo path only (Sonic CD 2011): the stamp floor (section 6). Not on this stack, but keep it clear |
 
-**Free on this stack (31 Oct 2026):** 39-43, 49, 55, **76-79, 81 and up**. Free on every stack (this one,
-Kobo, OpenTyrian): **76-79, 81 and up.** The old line "69 and up" was behind the code by eight numbers
+**Free on this stack (31 Oct 2026):** 39-43, 49, 55, **76, 77, 79, 81 and up** (78 went to `VSPLIT` the same day,
+section 21; 76 / 77 are the ones section 18 asks `sdcard/` to move to). Free on every stack (this one, Kobo,
+OpenTyrian): **76, 77, 79, 81 and up.** The old line "69 and up" was behind the code by eight numbers
 (69-75: OpenJazz REV, SuperTux, Rayman, `sdcard/`); BootCamp docs/03 had it right (72-79, 81+) until
 Rayman and `sdcard/` took 72-75 on 26-27 Oct.
 
@@ -150,6 +152,7 @@ should take numbers free on both (76 and up, 31 Oct 2026).
 | 72 / 73 | - | - | - | bank-31 piece out / in | - | - |
 | 74 | `sdcard/` **SDSAVE out** | - | - | **scroll at vblank** | - | - |
 | 75 | `sdcard/` SDSAVE in | - | - | - | - | - |
+| 78 | **V scroll line split** (`VSPLIT=1`) | - | - | - | - | - |
 | 80 | - | - | - | - | stamp floor | - |
 
 A Sub-CPU program belongs to one game, so none of these clashes is a run-time bug; every one is a trap for
@@ -720,7 +723,7 @@ but Rayman had taken 74 for its scroll command the day before (section 17), and 
 line still said "69 and up". Rule: one number, one meaning. **Resolution asked for: the kit moves its
 defaults to 76 / 77** (`SDSAVE_OUT=` / `SDSAVE_IN=` in the make, `-DSDSAVE_CMD_OUT=` / `-DSDSAVE_CMD_IN=`
 on the SH2 side, together) before any game ships with it; until then a game that merges both Rayman's
-scroll and the kit must pass the override. This ledger lists 76-79 as free so that the next taker sees the
+scroll and the kit must pass the override. This ledger keeps 76 / 77 free (78 went to `VSPLIT`, section 21) so that the next taker sees the
 move; whoever makes it updates sections 3, 18 and this line.
 
 ## 19. OpenJazz CD32X REV (R7-R11, to `d486f58`): commands 67, 69, 70, 71
@@ -802,3 +805,54 @@ What `dxtest` sent:
 the console should be built with the owner's own toolchain.
 
 Details: DraculaX_32X `docs/03_M1_TEST1.md`.
+
+## 21. VSPLIT: command 78 and listener routine 38, the V scroll changed part-way down the screen (31 Oct 2026)
+
+**Owner:** the BootCamp stack (CD32X-BootCamp `c643910`), at the owner's decision D4 for Dracula X CD32X.
+
+**Why:** Dracula X's stage 8 changes its background's vertical offset up to 9 times down one picture (a strip
+whose rows repeat, with a ripple that moves every few frames: DraculaX_32X docs/04). The Genesis has per-line
+H scroll, but only one V scroll per plane, and two planes.
+
+**Switch:** `VSPLIT ?= 0`, needs `GENPLANE=1`.
+- `main.c` gets `-DDX_VSPLIT` through **HWFLAGS**; `hw_md.s` gets `--defsym DX_VSPLIT=1`.
+- `build.sh` stops unless `VSPLIT=1` comes with `GENPLANE=1` and reached `main.c` and the listener (`hint_vs`).
+- `tools/check_boot.py` strips the `DX-VSPLIT` blocks (outermost first, then `DX-GENPLANE`) and fingerprints
+  them in `stack/GENPLANE_BLOCKS.md5`.
+
+| CMD | Name | COMM2 | COMM8L | Reply | 68000 routine |
+|---|---|---|---|---|---|
+| 78 | V scroll line split | index 0-15; or `0x8000 \| count` = use the list's first count entries from now (0 = off) | with an index: the entry, line << 20 \| V scroll A << 10 \| V scroll B | - (COMM0 cleared) | **38 `set_vs_line`** (new), and the H interrupt handler `hint_vs` |
+
+- **The list:**
+  - Entry 0 is the top of the picture: its line is ignored, and it is written to VSRAM at once.
+  - The others must be in line order.
+  - "Use" (`0x8000 | count`): the H interrupt is turned on every line (VDP register 10 = 0, register 0
+    = `0x14`) and `$A12006` is set to `hint_vs`'s low word.
+  - Count 0: register 0 = `0x04` (off).
+- **`hint_vs`:**
+  - Runs at the end of every line: it reads the V counter (`$C00008` high byte), and when the next line is an
+    entry's line, it writes that entry's two VSRAM words.
+  - After line 223 it writes entry 0 again for the next picture.
+  - Its VSRAM write sets the VDP's address, so it must never run inside a routine that is streaming to the
+    VDP. The dispatcher therefore runs every listener routine with **SR = `0x2400`** (level 4 masked) and
+    goes back to `0x2000` after.
+  - A split that falls due during a routine is done when the routine ends, late on that picture.
+  - The vertical blank (level 6) is not masked and touches no VDP register.
+- **The H-INT vector:** Mega-CD manual, "MAIN-CPU registers, `$A12006` H-INT vector (level 4)". On H-INT the
+  main CPU jumps to the high word of the vector at `$70` with `$A12006` as the low word. The listener runs in
+  work RAM at `$FF1000`, so the low word alone points the jump at `hint_vs`.
+- **Cost:** 224 short interrupts a picture while the split is on, most of them only a compare.
+
+**Status: emulation** (ares, 31 Oct 2026, 4 MB cart, CD32X-BootCamp `c643910` built with the stand-in m68k-elf of
+DraculaX_32X `tools/toolchain/`):
+
+| Test | Result |
+|---|---|
+| `VSPLIT=0` | byte-identical (`GENPLANE=0` = the shipped stack; `GENPLANE=1` = `252265a`) |
+| `hello`, `GENPLANE=1 VSPLIT=1` | boots as the baseline, frames identical |
+| Dracula X's stage 8 test frame | 9 entries (offset 0, then −1 … −8 every three lines from line 201) with the per-line H scroll table; **0 of 57,344 pixels** off the frame computed on the PC (itself 0 off Mednafen) |
+| Dracula X's stage 3 frame on the same build | 0 off |
+
+**Open on the console:** when the H interrupt arrives relative to the line, and what the V counter reads
+then. If the console's split lands a line early or late, the off-by-one goes in `hint_vs`'s `addq.w #1,d0`.

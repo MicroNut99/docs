@@ -139,7 +139,8 @@ command only as far as its status says:
      boot.
 2. **Pick a number free on every stack.**
    - Check sections 3, 4 and 6.
-   - As of 31 Oct 2026, unused everywhere: **76–79, 81 and up** (39–43, 49 and 55 are free on the OpenLara path
+   - As of 31 Oct 2026, unused everywhere: **76, 77, 79, 81 and up** (78: the BootCamp's `VSPLIT`, ledger §21; 76 / 77 are
+     earmarked for `sdcard/`'s move, §18) (39–43, 49 and 55 are free on the OpenLara path
      only; 69–75 went to OpenJazz REV, SuperTux, Rayman and the `sdcard/` kit on 26–27 Oct).
 3. **Put the command behind a build switch** in the Sub-CPU (`HWFLAGS`). Leave the normal build byte-identical.
 4. **Add a row to the additions ledger before the disc goes out.** Give:
