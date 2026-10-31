@@ -47,7 +47,9 @@ through the Sub-CPU (`[OL-EDCD]`, `[sdcard/]`). "Is it already in the cart?" che
   RV = 1, `W` on inside the write only, SR = 0x2700) → bank 31 → the OS → the card. Both SH2s wait in
   SDRAM with interrupts masked meanwhile (EDSAVE-4).
 - The commands that do it, per game (all the same code, OpenLara's EDSAVE-1, different numbers; see the
-  ledger §16): OpenLara / OpenJazz REV / Hurrican / D32XR **61 out, 62 in**; SuperTux **61 out, 69 in**;
+  ledger §16): OpenLara / OpenJazz REV / Hurrican **61 out, 62 in**; SuperTux **61 out, 69 in**; D32XR 61 for
+  its loader's record and its own 68000 for the game's piece 11 (CTRL1 = 31, after the stack has ended);
+  Sonic's launcher keeps its two backup-RAM files at bank offset `file × 512` inside 56 / 59;
   Rayman **72 out, 73 in** (pieces at `0x30000`); the BootCamp kit **74 out, 75 in** (pieces across the
   whole 256 KB, 0-63). Hurrican's launcher also reroutes **56 / 59** (backup RAM) to bank-31 piece 12.
 - Nothing else on the card is reached by any CD32X program today: no game opens a file on the card, and

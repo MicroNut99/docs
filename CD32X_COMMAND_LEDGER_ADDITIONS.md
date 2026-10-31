@@ -48,8 +48,8 @@ CD32X REV** (Genesis plane: load / show / off / cell, section 19); the two never
 but code moved between them must renumber.
 
 **62 has a second meaning too (31 Oct 2026 audit).** On the EverDrive launcher builds of OpenLara
-CD32X-REV (EDSAVE-1, console-proven 26 Oct 2026), OpenJazz REV, Hurrican and D32XR, **62 = "save piece
-in"** (a 4 KB piece of the EverDrive's bank 31 → the Sub-CPU's buffer, section 16). SuperTux, whose 62 is
+CD32X-REV (EDSAVE-1, console-proven 26 Oct 2026), OpenJazz REV and Hurrican, **62 = "save piece
+in"**; on D32XR CD32X **62 = "Genesis background"** (HUR genbg, with listener routine 36 `set_scroll`) (a 4 KB piece of the EverDrive's bank 31 → the Sub-CPU's buffer, section 16). SuperTux, whose 62 is
 `VRAM word`, put its copy of that command on **69** - which is OpenJazz REV's LZ unpack (section 19).
 Both breaches of the "one number, one meaning" rule are recorded here rather than hidden; the numbers
 that clash nowhere for a bank-31 copy are the BootCamp `sdcard/` kit's **74 / 75** (section 18) - and 74
@@ -80,32 +80,34 @@ that nobody mistakes one game's 38 for another's; the BootCamp's own `hw_md.s` s
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | BootCamp `stack/subcpu/hw_md.s` | - | - | - | - | - | - | - | - | - | - | 36 |
 | SuperTux REV | `set_vsram` | `copy_vram_col` | - | - | - | - | - | - | - | - | 38 |
+| D32XR CD32X | `set_scroll` (HUR genbg: plane A/B h- and v-scroll in one call) | - | - | - | - | - | - | - | - | - | 37 |
 | OpenJazz REV (`d486f58`) | `set_vsram` | `genbg_load` | `genbg_start` | `genbg_off` | `genbg_cell` | `rv_copy_fast` (R7: cart ↔ Word RAM, 48 bytes a `movem`, RV = 1) | `bmd_setup` | `bmd_queue` | `bmd_off` | `cmd_nop` (free) | 46 |
 | Rayman (`tools/stack_genvdp.py`, `RAY_GENVDP`) | `set_vsram` | `copy_vram_col` | `set_scroll_vb` (section 17) | - | - | - | - | - | - | - | 39 |
 | Sonic CD 2011 (Kobo path) | - | - | - | - | - | - | - | - | - | - | 35 |
 
-So MD 38 is `genbg_start` in OpenJazz REV and `set_scroll_vb` in Rayman; MD 37 is `copy_vram_col` in
-SuperTux and Rayman but `genbg_load` in OpenJazz REV. The `CD32X_PAGED_CART_STACK_PROPOSAL.md` plan to
+So MD 36 is `set_vsram` in three listeners and `set_scroll` in D32XR's; MD 38 is `genbg_start` in OpenJazz
+REV and `set_scroll_vb` in Rayman; MD 37 is `copy_vram_col` in SuperTux and Rayman but `genbg_load` in
+OpenJazz REV. The `CD32X_PAGED_CART_STACK_PROPOSAL.md` plan to
 move OpenJazz to MD 38-41 was not carried out: OpenJazz REV kept 37-40.
 
 ## 3. The SH2 command numbers in use (this stack)
 
 | CMD | Meaning |
 |---|---|
-| 38 | open file (length → COMM8L; 0 = not on the disc). The number also picks the cart slot for the next 46 |
+| 38 | open file (length → COMM8L; 0 = not on the disc). The number also picks the cart slot for the next 46. **Paged builds of Hurrican and D32XR (`CART_PAGED`): bit 15 = the destination comes in COMM8L** (`cur_dest`, `& 0x3FFFFC`, used by 46 / 47 instead of the slot; D32XR wraps it in the 4 MB) |
 | 44 | clear the Genesis planes. **Always acknowledged** (`main.c` 31 Oct 2026 reading: COMM0 is cleared in every build); the clears themselves (MD 4 / 8) are compiled out while `SLIDESHOW_DEBUG` is 1, which it is in this stack - so 44 does nothing but answer |
-| 45 / 54 | play CD track (bit 15 = once) / stop music |
+| 45 / 54 | play CD track (bit 15 = once, OpenLara OL-4; **Sonic's Kobo path has no bit 15: repeat only**) / stop music |
 | 46 | chunk → cart (bit 15 = no read-back); reply COMM12 = 0 ok / 1 bad. Switches: `FMVRING` bit 14 ring, reply \| 0x100 (section 12); `CARTW` word copy, MD 27 (section 13); `STREAM` read-ahead (section 10) |
 | 47 | chunk compare with the cart (`CMD_CART_TO_FB` also has the value 47 in `main.c`; its branch is never reached) |
 | 48 | pad (+ sound effect in the high byte, COMM2 = its volume); reply COMM8 pad, COMM10 ticks, in one 32-bit write. Answered before any other command |
 | 50 / 51 | file chunk → frame buffer (off-screen 16 KB / splash 32 KB). **Both write COMM12 32 bits wide** (chunk, sectors, a data word): the one place the stack itself overwrites COMM14 |
 | 52 | Genesis display on / off |
 | 53 | load sound pack `SFXnn.BIN`; reply COMM12 = number of effects, 0 = failed |
-| 56 / 59 | backup RAM load / save (BIOS `_BURAM`, `GAME_BRAM_NAME`, 64 blocks = half the console's 8 KB; Rayman's `stack_save.py` cuts its own to 5 blocks); reply COMM12 1 ok |
+| 56 / 59 | backup RAM load / save (BIOS `_BURAM`, `GAME_BRAM_NAME`, 64 blocks = half the console's 8 KB; Rayman's `stack_save.py` cuts its own to 5 blocks, Hurrican's HB-1 to 2); reply COMM12 1 ok. **Sonic R6 (`SCD_SAVE_MIN`): COMM2 = the file, 0 progress (`SONICCD32X_`, 2 blocks) / 1 time attack (`SONICCD32XT`, 5 blocks); its ED launcher (`SCD_MODE1`) keeps both in bank 31 at `0x800000 + file × 512`.** Hurrican ED: → bank-31 piece 12 |
 | 57 / 58 | buffer word get / put (COMM2 = word 0-2047 of the 4 KB buffer; 58 fills it for 59, 61 and every bank-31 command of section 16) |
 | 60 | D32X: start D32XR from the cart (never returns). D32XR CD32X sets window 1 to page 7 first (section 15) |
 | 61 | save area: 4 KB piece → cart 0x3F0000 + (COMM2 & 15) × 4 KB, read back; reply COMM12 1 ok. `SLOTS=1`: bit 8 → OpenLara's slot area, reply 0x101 (section 11). **ED launcher builds:** the same piece → bank 31, reply `1 \| 0x200` (section 16) |
-| **62–67** | **the Genesis picture (section 1)** - SuperTux REV, Rayman (`RAY_GENVDP`, 62-67 as SuperTux's). **62 = "save piece in" on OpenLara EDCD, OpenJazz REV, Hurrican, D32XR** (section 16) |
+| **62–67** | **the Genesis picture (section 1)** - SuperTux REV, Rayman (`RAY_GENVDP`, 62-67 as SuperTux's). **62 = "save piece in" on OpenLara EDCD, OpenJazz REV, Hurrican** (section 16); **62 = "Genesis background" on D32XR** (COMM2 1 load + show from cart offset COMM8L (`GBG1` pack: tiles → VRAM `0x1000`, map → plane B `0xE000`, CRAM line 3), 2 scroll (COMM8 h, COMM12 v → MD 36), 0 off; reply COMM12 1) |
 | **67** | OpenJazz REV: Genesis plane (section 19) - not SuperTux's columns |
 | **68** | **cart page, window 1 (section 7)**: 8 / 16 MB SRAM cart, OpenLara CD32X-REV test builds; SuperTux CD32X REV `CART_MB=8/16` builds (REV11-16MB-T1); OpenJazz REV, Hurrican, D32XR, Rayman paged builds. `CART=ED`: pages 1-6 only, four word writes to CTRL4-7 (section 16) |
 | **69** | OpenJazz REV: unpack a compressed pack page → page (section 19). **SuperTux REV ED builds: "save piece in"** (section 16) |
@@ -132,11 +134,11 @@ should take numbers free on both (76 and up, 31 Oct 2026).
 
 | CMD | OpenLara path (BootCamp) | SuperTux REV | OpenJazz REV | Rayman | Kobo path (Sonic) | OpenTyrian cart stack |
 |---|---|---|---|---|---|---|
-| 46 | chunk → cart, bit 15 no read-back | same | same | same | 4 forms: `0x00nn`, runs `0x01nn-0x03nn`, `0xF8nn` page, `0xF0nn` slot | - |
+| 46 | chunk → cart, bit 15 no read-back | same | same | same | 4 forms: `0x00nn`, runs `0x01nn-0x03nn` (no read-back, reply COMM8 = the Sub-CPU's `load_sum` checksum), `0xF8nn` page (ED: four CTRL word writes, page 7 refused), `0xF0nn` slot | - |
 | 47 | chunk compare | same | same | same | cart → frame buffer | - |
 | 60 | start D32XR | - | - | - | - | CD find |
 | 61 | save piece → cart (ED: → bank 31) | same | same | same | - | CD read |
-| 62 | VRAM word (SuperTux's, when merged) / **save piece in** (OpenLara EDCD) | VRAM word | **save piece in** (ED) | VRAM word | - | SRAM read |
+| 62 | VRAM word (SuperTux's, when merged) / **save piece in** (OpenLara EDCD, Hurrican) / **Genesis background** (D32XR, MD 36) | VRAM word | **save piece in** (ED) | VRAM word | - | SRAM read |
 | 63-66 | Genesis picture (SuperTux's) | Genesis picture | - | Genesis picture | - | 63 SRAM write |
 | 67 | - | cart → VRAM columns | **Genesis plane** load / show / off / cell | cart → VRAM columns | - | - |
 | 68 | cart page, window 1 | same | same | same | act file → Genesis planes | - |
@@ -649,7 +651,7 @@ and up): the OS writes that much to `MEGA/gamedata/<launcher>/bram.srm`.
 | OpenLara CD32X-REV EDCD (EDSAVE-1) | **61** (COMM2 = piece 0-15; the save area's own numbers) | **62** (COMM2 = piece; `0x8000` = only ask) | `n × 4 KB`; slots at `0x10000` | 61: `1 \| 0x200`; 62: `1 \| 0x200` | `OL_EDSAVE` (branch after `a9f13c4`; cited by `sdcard/README_AI.md`) |
 | OpenJazz CD32X REV | 61 | 62 | `n × 4 KB` | as OpenLara | `cd32x/subcpu/main.c` `CART_EDSAVE` (`ed_page == 1` only) |
 | Hurrican CD32X | 61; **56 / 59 → piece 12** (high scores) | 62 | `n × 4 KB`; 12 for 56/59 | as OpenLara; 56/59: 1 ok | `cd32x/subcpu/main.c` `CART_EDSAVE` |
-| D32XR CD32X | 61 | 62 | `n × 4 KB` | as OpenLara | `cd32x/subcpu/main.c` `CART_EDSAVE` |
+| D32XR CD32X | 61 (the loader's piece-15 record only) | **none**: D32XR's own 68000 reads bank 31 itself (`src-md/crt0.s`, CTRL1 = 31, `CD32X_EDSAVE 0x080000`) after CMD 60 ends the stack; its 62 is the Genesis background | `n × 4 KB`; piece 11 the game's | 61 as OpenLara | `cd32x/subcpu/main.c` `CART_EDSAVE` (61 only) |
 | SuperTux CD32X REV | 61 | **69** (62 is its `VRAM word`) | `n × 4 KB` | as OpenLara | `cd32x/subcpu/main.c` `CART_EDSAVE`, `STX_CART_PAGED` |
 | Rayman CD32X (section 17) | **72** (COMM2 & 15) | **73** | **`0x30000 + n × 4 KB`** | `0x201` / 0 | `tools/stack_save.py`, `RAY_SAVE` |
 | CD32X-BootCamp `sdcard/` (section 18) | **74** (COMM2 = piece 0-63) | **75** (`0x8000` = only ask) | `n × 4 KB` across the whole 256 KB | `0x201` / 0 | `sdcard/subcpu/merge_sdsave.py`, `SDSAVE` |
