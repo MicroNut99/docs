@@ -83,6 +83,7 @@ that nobody mistakes one game's 38 for another's; the BootCamp's own `hw_md.s` s
 | D32XR CD32X | `set_scroll` (HUR genbg: plane A/B h- and v-scroll in one call) | - | - | - | - | - | - | - | - | - | 37 |
 | OpenJazz REV (`d486f58`) | `set_vsram` | `genbg_load` | `genbg_start` | `genbg_off` | `genbg_cell` | `rv_copy_fast` (R7: cart ↔ Word RAM, 48 bytes a `movem`, RV = 1) | `bmd_setup` | `bmd_queue` | `bmd_off` | `cmd_nop` (free) | 46 |
 | Rayman (`tools/stack_genvdp.py`, `RAY_GENVDP`) | `set_vsram` | `copy_vram_col` | `set_scroll_vb` (section 17) | - | - | - | - | - | - | - | 39 |
+| Dracula X CD32X (`cd32x/genplane.patch`, `DX_GENPLANE`, section 20) | `set_vsram` | `copy_vram_col` | - | - | - | - | - | - | - | - | 38 |
 | Sonic CD 2011 (Kobo path) | - | - | - | - | - | - | - | - | - | - | 35 |
 
 So MD 36 is `set_vsram` in three listeners and `set_scroll` in D32XR's; MD 38 is `genbg_start` in OpenJazz
@@ -107,7 +108,7 @@ move OpenJazz to MD 38-41 was not carried out: OpenJazz REV kept 37-40.
 | 57 / 58 | buffer word get / put (COMM2 = word 0-2047 of the 4 KB buffer; 58 fills it for 59, 61 and every bank-31 command of section 16) |
 | 60 | D32X: start D32XR from the cart (never returns). D32XR CD32X sets window 1 to page 7 first (section 15) |
 | 61 | save area: 4 KB piece → cart 0x3F0000 + (COMM2 & 15) × 4 KB, read back; reply COMM12 1 ok. `SLOTS=1`: bit 8 → OpenLara's slot area, reply 0x101 (section 11). **ED launcher builds:** the same piece → bank 31, reply `1 \| 0x200` (section 16) |
-| **62–67** | **the Genesis picture (section 1)** - SuperTux REV, Rayman (`RAY_GENVDP`, 62-67 as SuperTux's). **62 = "save piece in" on OpenLara EDCD, OpenJazz REV, Hurrican** (section 16); **62 = "Genesis background" on D32XR** (COMM2 1 load + show from cart offset COMM8L (`GBG1` pack: tiles → VRAM `0x1000`, map → plane B `0xE000`, CRAM line 3), 2 scroll (COMM8 h, COMM12 v → MD 36), 0 off; reply COMM12 1) |
+| **62–67** | **the Genesis picture (section 1)** - SuperTux REV, Rayman (`RAY_GENVDP`, 62-67 as SuperTux's), Dracula X CD32X (`GENPLANE=1`, 62-67 as SuperTux's, section 20). **62 = "save piece in" on OpenLara EDCD, OpenJazz REV, Hurrican** (section 16); **62 = "Genesis background" on D32XR** (COMM2 1 load + show from cart offset COMM8L (`GBG1` pack: tiles → VRAM `0x1000`, map → plane B `0xE000`, CRAM line 3), 2 scroll (COMM8 h, COMM12 v → MD 36), 0 off; reply COMM12 1) |
 | **67** | OpenJazz REV: Genesis plane (section 19) - not SuperTux's columns |
 | **68** | **cart page, window 1 (section 7)**: 8 / 16 MB SRAM cart, OpenLara CD32X-REV test builds; SuperTux CD32X REV `CART_MB=8/16` builds (REV11-16MB-T1); OpenJazz REV, Hurrican, D32XR, Rayman paged builds. `CART=ED`: pages 1-6 only, four word writes to CTRL4-7 (section 16) |
 | **69** | OpenJazz REV: unpack a compressed pack page → page (section 19). **SuperTux REV ED builds: "save piece in"** (section 16) |
@@ -737,3 +738,52 @@ These were only in CD32X-BootCamp docs/03's clash table until now. All in `cd32x
   docs/06 for that command: the SH2 writes both before COMM0 and must not expect COMM12 to hold its status
   through it. 69 reads COMM12 as an input the same way.
 - Status: R1 ran on the console (20-22 fps); R7-R11 are emulation only (BootCamp docs/07, 29 Oct 2026).
+
+## 20. Dracula X CD32X (M1 test 1, 31 Oct 2026): SuperTux's 62-67 on the BootCamp stack, run by a game in ares
+
+MicroNut99/DraculaX_32X (`c8e8099`) takes SuperTux CD32X REV's Genesis picture commands onto the BootCamp
+stack, unchanged: **no new number, no new meaning.** The commands and listener routines are exactly
+sections 1 and 2:
+- SH2 62-67;
+- MD 36 `set_vsram`, MD 37 `copy_vram_col`, `MD_CMD_END` 38 (the same numbers as SuperTux and Rayman).
+
+**Where:** `cd32x/genplane.patch` on a copy of the BootCamp (`cd32x/apply.sh`); the BootCamp folder itself is
+never touched.
+
+**Switch:** `GENPLANE ?= 0`.
+- `main.c` gets `-DDX_GENPLANE` through **HWFLAGS**.
+- `hw_md.s` gets `--defsym DX_GENPLANE=1`.
+- `build.sh` stops unless `main.c`'s compile line has `-DDX_GENPLANE=1` and the listener has `copy_vram_col`
+  (the lesson of section 7a).
+- `tools/check_boot.py` strips exactly the `DX-GENPLANE begin / else / end` blocks. The rest must match the
+  BootCamp's `BOOT_FILES.md5`.
+
+| Check | Result (ares, the owner's ares_android `ares-headless`, 4 MB cart, US BIOS) |
+|---|---|
+| `GENPLANE=0` | the Sub-CPU program (`APP.BIN`) byte-identical to the BootCamp's build |
+| BootCamp `hello/` with `GENPLANE=1` | boots and runs as without it: frames 1800 and 2100 identical pixel for pixel, `4B10` |
+| the test ROM `dxtest/` (`GENPLANE=1`) | every command answered; every 63 / 64 / 67 replied 1; `4B10`. One PC Engine frame drawn the REV way (background on plane A, sprites on the 32X in front at PRI 1, through-bit colours): **0 of 57,344 pixels** differ from the frame computed on the PC |
+
+What `dxtest` sent:
+
+| Command | Times | Use |
+|---|---|---|
+| 65 | 12 | display off / on; planes A and B at `0xE000` (64 × 64); sprite table `0xD000`; H-scroll `0xD400`; full-screen scroll; window off; backdrop; H40 |
+| 64 | 1 | all 64 colours |
+| 63 | 2 | 77 tiles: 1023 words, then the rest |
+| 67 | 16 | the map: 4 columns × 64 words each |
+| 62 | 6 | the sprite table's first entry; H-scroll of A and B |
+| 66 | 2 | V-scroll of A and B |
+| 62 / 66 | 2 a frame | while the D-pad is held: the plane scrolls under the fixed 32X layer |
+
+**Status:**
+- **62-67 on the BootCamp stack:** emulation (ares, 31 Oct 2026).
+- **67:** now exercised by a game in emulation, with a 64-word column, the most its 8-bit count allows on a
+  64-row plane.
+- **The console:** not yet.
+
+**Toolchain:** the container's Sub-CPU build used a stand-in m68k-elf (Ubuntu binutils / GCC 13, GCC 12.1's
+`lb1sf68.S`, a small libc; DraculaX_32X `tools/toolchain/`). The owner's sh-elf GCC 12.1 was used. A disc for
+the console should be built with the owner's own toolchain.
+
+Details: DraculaX_32X `docs/03_M1_TEST1.md`.
