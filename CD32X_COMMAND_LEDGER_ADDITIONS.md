@@ -118,7 +118,7 @@ move OpenJazz to MD 38-41 was not carried out: OpenJazz REV kept 37-40.
 | **72 / 73** | Rayman: bank-31 save piece out / in at bank offset `0x30000` (section 17) |
 | **74** | **two owners:** Rayman: plane A scroll at the vertical blank (section 17, MD 38); BootCamp `sdcard/`: `SDSAVE_CMD_OUT` (section 18) |
 | **75** | BootCamp `sdcard/`: `SDSAVE_CMD_IN` (section 18) |
-| **78** | **BootCamp stack, `VSPLIT=1` (needs `GENPLANE=1`): V scroll line split** - the planes' V scroll changed part-way down the screen by the Genesis H interrupt (section 21) |
+| **78** | **BootCamp stack, `VSPLIT=1` (needs `GENPLANE=1`): V scroll line split** - the planes' V scroll changed part-way down the screen by the Genesis H interrupt; double-buffered list (sections 21, 21a) |
 | **80** | Kobo path only (Sonic CD 2011): the stamp floor (section 6). Not on this stack, but keep it clear |
 
 **Free on this stack (31 Oct 2026):** 39-43, 49, 55, **76, 77, 79, 81 and up** (78 went to `VSPLIT` the same day,
@@ -822,7 +822,7 @@ H scroll, but only one V scroll per plane, and two planes.
 
 | CMD | Name | COMM2 | COMM8L | Reply | 68000 routine |
 |---|---|---|---|---|---|
-| 78 | V scroll line split | index 0-15; or `0x8000 \| count` = use the list's first count entries from now (0 = off) | with an index: the entry, line << 20 \| V scroll A << 10 \| V scroll B | - (COMM0 cleared) | **38 `set_vs_line`** (new), and the H interrupt handler `hint_vs` |
+| 78 | V scroll line split | index 0-15; or `0x8000 \| count` = show the filled list, its first count entries (0 = off; D5: from the end of the picture on screen) | with an index: the entry, line << 20 \| V scroll A << 10 \| V scroll B | - (COMM0 cleared) | **38 `set_vs_line`** (new), and the H interrupt handler `hint_vs` |
 
 - **The list:**
   - Entry 0 is the top of the picture: its line is ignored, and it is written to VSRAM at once.
@@ -856,3 +856,43 @@ DraculaX_32X `tools/toolchain/`):
 
 **Open on the console:** when the H interrupt arrives relative to the line, and what the V counter reads
 then. If the console's split lands a line early or late, the off-by-one goes in `hint_vs`'s `addq.w #1,d0`.
+
+### 21a. D5: the list double-buffered, the mask narrowed (CD32X-BootCamp `1ae4847`, 31 Oct 2026)
+
+**Why:** a game sends the next picture's splits while the current picture is still on screen (the 32X draws the
+next frame meanwhile).
+- **The fault:** with one list, the entries sent then changed the lower bands of the picture on screen, and the
+  commit wrote entry 0 at once. So the bands ran a frame ahead of the 32X frame, part-way down the screen: the
+  hero shaking against the background (DraculaX_32X docs/07). §21's test drew one still picture and could not
+  show it.
+- **The owner:** "make the change and test it".
+
+**The change (`hw_md.s`, inside the `DX-VSPLIT` blocks; command 78 and its COMM layout unchanged):**
+- **Two lists of 16:** `vs_vars` = count, position, the list shown (byte offset 0 / 64), pending count (−1 none),
+  then lists 0 and 1.
+- **An entry (index 0-15)** goes into the list **not** shown.
+- **A commit (`0x8000 | count`):**
+  - while the splits run: it only sets the pending count;
+  - the first commit (splits off until then): shows the filled list at once, as before;
+  - count 0: off at once.
+- **`hint_vs`, after line 223:** if a count is pending, it switches lists. That is the vblank at which the 32X
+  shows a frame whose swap was asked for after the commit. Then it writes entry 0 as before.
+- **The dispatcher masks level 4 only for routines that touch the VDP.** `get_pad` (3), `delay` (11) and the
+  32X register reads and writes every command makes (19-22) run with SR = `0x2000`, so they never hold a split
+  back.
+  - Before: every routine was masked. A command in flight while the bottom bands were drawn made one split
+    line land part-way through the line.
+- **The game's side:** commit, then ask for the 32X swap, in the same frame. A commit that lands after the
+  picture's line 223 waits for the next picture.
+
+**Status: emulation** (ares, owner's ares_android headless, 4 MB cart):
+
+| Test | Result |
+|---|---|
+| Dracula X stage 8 frame, the list changed **every frame while on screen** (DraculaX_32X `dxtest` `DXT_VSWAP`): layout 0 = the capture's 9 entries, layout 1 = the same lines + 8 lines of V scroll; a 32X marker says which layout each frame should show | **60 of 60 pictures exact** (0 pixels off the layout's own picture computed on the PC) and in step with the 32X frame. §21's stack: 0 of 12, 6,600-9,100 pixels off each. The double buffer alone: 50 of 60, with one late split row in the other 10 |
+| `hello`, `GENPLANE=1 VSPLIT=1` | pictures identical to the baseline |
+| Dracula X stage 8 and stage 3 test frames | 0 of 57,344 pixels off |
+| default build (switches off) | the disc's files and boot area identical to the old stack's (only the ISO dates differ); `check_boot.py` unchanged |
+
+**Open on the console:** the same as §21. Also whether the console's interrupt latency in the unmasked
+routines matches ares.
