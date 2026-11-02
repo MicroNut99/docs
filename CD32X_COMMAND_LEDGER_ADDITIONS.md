@@ -906,8 +906,7 @@ routines matches ares.
 - The numbers 81-98 are proposals, not taken, **except 84 and 90**: built 2 Nov 2026 in the BootCamp's
   `traytest/` (the tray test disc, `traytest/merge_tray.py`, `TRAYTEST ?= 0`), run in ares only, not on a console;
   section 3 lists them. Check section 3 before building any of the others, and renumber here if a number has gone.
-- When one is built: behind a switch (`HWFLAGS`), its own section, its status raised as it is proven, and its row
-  taken out of this list.
+- When one is built: behind a switch (`HWFLAGS`), its own section.
 
 **Where it comes from:**
 - **DarkMorford/scd-bios-disassembly** (github.com/DarkMorford/scd-bios-disassembly, last commit `41acd10`,
