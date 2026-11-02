@@ -896,3 +896,164 @@ next frame meanwhile).
 
 **Open on the console:** the same as §21. Also whether the console's interrupt latency in the unmasked
 routines matches ares.
+
+## 22. PROPOSED (2 Nov 2026): commands from the Sega CD BIOS - all untested
+
+**Status of everything in this section: proposed, untested as of 2 Nov 2026.**
+- Nothing here is in any Sub-CPU program: not built, not run in an emulator, not run on a console.
+- The numbers 81-98 are proposals, not taken. Section 3's free list is unchanged until a command is built. Check it
+  before building one of these, and renumber here if a number has gone meanwhile.
+- When one is built: behind a switch (`HWFLAGS`), its own section, its status raised as it is proven, and its row
+  taken out of this list.
+
+**Where it comes from:**
+- **DarkMorford/scd-bios-disassembly** (github.com/DarkMorford/scd-bios-disassembly, last commit `41acd10`,
+  29 Sep 2016): a commented disassembly of the US Model 2 BIOS **2.00W**. Its Sub-CPU part (`sub-68k/prog0_bios`)
+  names the CD read, drive, subcode and backup RAM code. The music handlers are still mostly unnamed labels: what
+  22a says of them was read from the code.
+- **drojaazu/megadev** (`lib/sub/bios.def.h`, `lib/sub/bram.def.h`): the BIOS call numbers and their arguments.
+- **The US Model 1 BIOS 1.10's Sub-CPU program**, read out of ares's program RAM after power-on (2 Nov 2026):
+  used only for the table sizes in 22d and for WONDERREQ / WONDERCHK.
+- The BIOS files and the disassembly's extracted pieces are Sega's: never copy them into a repository.
+
+**The BIOS calls the stack makes today** (`stack/subcpu/main.c`, `scd.c`, `cdfs.s`):
+- CD (`_CDBIOS`, `jsr 0x5F22`): MSCSTOP 0x02, DRVINIT 0x10, MSCPLAY1 0x12, MSCPLAYR 0x13, ROMSEEK 0x18,
+  ROMREADN 0x20, CDBSTAT 0x81, CDBTOCREAD 0x83, FDRSET 0x85, CDCSTOP 0x89, CDCSTAT 0x8A, CDCREAD 0x8B,
+  CDCTRN 0x8C, CDCACK 0x8D, CDCSETMODE 0x96.
+- Backup RAM (`_BURAM`, `jsr 0x5F16`): BRMINIT 0, BRMREAD 3, BRMWRITE 4 (commands 56 / 59, one fixed file,
+  `GAME_BRAM_NAME`).
+
+Every proposal below uses calls the stack does not make.
+
+### 22a. What the BIOS code shows (US 2.00W; the facts the proposals rely on)
+
+- **Two kinds of CD call.** Calls 0x80 and up run at once and return their result. Calls under 0x80 are queued:
+  the BIOS takes the call and returns, and its drive state machine carries it out over the next interrupts.
+  CDBSTAT (0x81) shows when the drive has done it.
+- **MSCPLAY (0x11)** plays on to the end of the disc, then pauses (state 0x25, then 0x03 at the lead-out).
+- **MSCPLAY1 (0x12)** pauses when the next track starts (state 0x26).
+- **MSCPLAYR (0x13)** repeats a track by starting it again with a **new seek each time round** (state 0x27 calls
+  0x13 again): the loop is not seamless.
+- **MSCSEEK (0x15) and MSCSEEKT (0x16)** seek and hold paused (state 0x28). MSCPAUSEOFF (0x04) then plays on to
+  the end of the disc. **MSCSEEK1 (0x19)** is the same seek, but MSCPAUSEOFF then plays **only that track**: a
+  flag picks state 0x26 instead of 0x25.
+- **Spin-down.** A paused drive counts frames: after a music seek or MSCPAUSEON (state 0x28), and a data read
+  paused by ROMPAUSEON or held after ROMSEEK (state 0x2B). When the count passes the spin-down delay, it goes to
+  standby (0x0B).
+  - The delay is CDBPAUSE (0x84), in 1/75 s. The BIOS sets 4500 (60 s) at start-up.
+  - A resume from standby starts the kept play again with a new seek.
+- **ROMPAUSEON (0x08) / ROMPAUSEOFF (0x09):** the data read pauses with its place kept (state 0x2B, status
+  0x0505), then goes on from there (state 0x2A).
+- **FDRSET (0x85):** the CD audio volume at once, 0-0x400 (bit 15 set: the master volume instead).
+  **FDRCHG (0x86):** D1 = target << 16 | slope. The volume moves towards the target one slope step per BIOS
+  interrupt.
+- **DRVOPEN (0x0A):**
+  1. Stops the drive if it is running.
+  2. Sends the drive its "open door" command (CDD 0x0D).
+  3. Reports "tray open" (status word 0x4000) while the drive says the door is open.
+  4. Then runs DRVINIT itself: the new disc's table of contents is read again.
+- **WONDERREQ (0x97) and WONDERCHK (0x98) are empty** in both US BIOSes read (2.00W in the disassembly, 1.10 in
+  ares): WONDERREQ only tests D1 and returns; WONDERCHK always returns 0.
+
+### 22b. Proposed commands
+
+| CMD | Name | COMM2 | COMM8 / COMM8L | Reply | BIOS call | Why |
+|---|---|---|---|---|---|---|
+| 81 | CD music pause / resume | 1 pause, 0 resume | - | - | MSCPAUSEON 0x03 / MSCPAUSEOFF 0x04 | A pause menu keeps the song's place; today 54 stops it and 45 starts it from the top |
+| 82 | CD music volume / fade | target 0-1024 (1024 = full) | COMM8 = slope; 0 = at once | - | FDRSET 0x85 / FDRCHG 0x86 | Fades at level ends, a music volume option, music lower under speech. **45 calls FDRSET 0x400 every time it starts a track**: send 82 after 45, or change 45 behind the same switch |
+| 83 | Cue a track | track; bit 15 = when started, play this track only (MSCSEEK1) | - | - | MSCSEEK 0x15 / MSCSEEK1 0x19 | The drive waits at the start of the track; 81 (resume) starts it with no seek, so a short jingle starts on time |
+| 84 | CD status and music position | - | - | COMM8L = track << 24 \| time in the track (BCD mm:ss:ff); COMM12 = the BIOS status word (0x0000 stopped, 0x0100 playing, 0x0300 scanning, 0x0500 paused, 0x1000 no disc, 0x4000 tray open; bit 15 = busy) | CDBSTAT 0x81 | Carry the music on after a disc read (with 85), sync to the music, a CD player's time; after 90, see the tray open, close and the new disc read |
+| 85 | Play from a time / seek to a time | 0 play, 1 seek and hold | COMM8L = disc time (BCD mm:ss:ff:00) | - | MSCPLAYT 0x14 / MSCSEEKT 0x16 | With 84, a song goes on where it stopped. MSCPLAYT plays on into the next tracks (the 0x25 play): the game stops it at the track's end |
+| 86 | Disc track list | track 1-99; 0 = first and last track numbers | - | COMM8L = the track's table entry (start time and type: data or audio); for 0: first << 8 \| last | CDBTOCREAD 0x83 | Check the disc has the music tracks before using them; a CD player screen |
+| 87 | Scan | 1 forward, 2 back, 0 off | - | - | MSCSCANFF 0x05 / MSCSCANFR 0x06 / MSCSCANOFF 0x07 | A CD player screen |
+| 88 | Drive lights | 0-7 (ready, disc in, access, standby, error, modes 5-7: megadev's table); `0x8000` = back to the BIOS | - | - | LEDSET 0x95 | A sign on the console itself when the screen shows nothing (a stuck load, a console test) |
+| 89 | Spin-down delay | ticks of 1/75 s (megadev: normal range 0x1194-0xFFFE; 0xFFFF never stops and can damage the drive) | - | - | CDBPAUSE 0x84 | Keep the disc spinning through a pause menu, so 81 resumes without a spin-up and a seek |
+| 90 | Open the tray | - | - | COMM12 = 1 asked | DRVOPEN 0x0A | "Insert disc 2", a disc swap. Not every model: 22c |
+| 91 | Backup RAM status | - | - | COMM8L = free blocks << 16 \| number of files; COMM12 = 0 no backup RAM, 1 unformatted, 2 other format, 3 ready | BRMINIT 0, BRMSTAT 1 | Say why a save failed (unformatted, full) instead of failing silently. SuperTux reported that backup RAM saving never worked on its console: this would tell why |
+| 92 | Backup RAM directory | number of files to skip | - | the 4 KB buffer (read with 57): up to 255 entries of 16 bytes (name 11 + 0, start, blocks); COMM12 = entries | BRMDIR 7 | List every game's saves, as the Sega CD's own screen does |
+| 93 | Backup RAM: read a file | part 0-1 | - | buffer bytes 0-4079 = that part of the file; COMM8L = blocks << 16 \| mode; COMM12 = 1 ok, 0 not found, 2 part past the end | BRMSERCH 2, BRMREAD 3 | Any file by name. The Sub-CPU reads the whole file (up to 8 KB) into its own work area and hands it out in 4080-byte parts |
+| 94 | Backup RAM: write a file | part 0-1; bit 15 = last part: write the file now | - | COMM12 = 3 part kept, 1 written and verified, 0 failed (full, bad name) | BRMWRITE 4 (D1 = 0, Tech Bulletin #1), BRMVERIFY 8 | Any name, any size up to the free space (56 / 59 write one fixed name of 64 blocks) |
+| 95 | Backup RAM: delete a file | - | - | COMM12 = 1 deleted, 0 failed | BRMDEL 5 | An "erase save" option; tidy up a full backup RAM from the game |
+| 96 | Backup RAM: format | must be `0x464D` (`FM`); anything else is refused | - | COMM12 = 1 formatted, 0 failed or refused | BRMINIT 0, BRMFORMAT 6 | Make an unformatted backup RAM usable. **Erases every game's saves**: the game asks the player twice |
+| 97 | WonderMega request | D1 for WONDERREQ | - | - | WONDERREQ 0x97 | Find out what a WonderMega's BIOS does with it (22b note) |
+| 98 | WonderMega check | - | - | COMM8 = WONDERCHK's D0 | WONDERCHK 0x98 | 0 on every US BIOS read; non-zero would mean a BIOS that implements it |
+
+**For 92-95:** the file name goes in the last 16 bytes of the 4 KB buffer (bytes 4080-4095, CMD 58): the name
+(11 characters) and a 0, then for 94 the mode (0 normal, 0xFF protected) and the size in blocks (a word; 64 bytes a
+block in normal mode, 32 protected). The data parts are bytes 0-4079. 92 takes a name pattern there (`SONIC*`,
+`*` = all, megadev's BRMDIR note).
+
+**Backup RAM, which one.** These calls reach the Sega CD's own 8 KB backup RAM (`0xFE0000`). The Sega CD's
+backup RAM cartridge can't be used on a CD32X: the cartridge slot holds the 32X and the RAM cart. Today only the
+Sega CD's own screen and Sonic CD manage this RAM; 91-96 would let any game on the stack do it.
+
+**WonderMega (97 / 98).** On the US BIOSes both calls are empty, and megadev's notes say "no documentation;
+research needed; presumably exclusive to the WonderMega". Nothing is known of what a WonderMega's (Victor / JVC)
+BIOS does with them. 97 / 98 are the way to find out: read a WonderMega BIOS's two handlers first (in ares), then
+on a WonderMega. Whether a 32X runs on a WonderMega with the CD32X stack is untested too.
+
+**Inside an existing command (no number): pause the data read instead of losing it.** In STREAM (section 10), the
+64 KB read-ahead ring (`st_buf`) fills while the 68000 copies to the cart. The sectors after that are lost
+(`cd_pump`: "lost: start again when asked"), and the next chunk seeks again. ROMPAUSEON (0x08) when the ring is
+full and ROMPAUSEOFF (0x09) when there is room keep the drive in place (22a). Behind STREAM or a switch of its own.
+
+### 22c. Open the tray (DRVOPEN 0x0A): by model
+
+| Model | Tray | DRVOPEN |
+|---|---|---|
+| Model 1 (front tray, motorised) | **No eject button** (the owner, 2 Nov 2026). The tray opens only by software: the Sega CD's own screen, or a game calling DRVOPEN | The way a game opens the tray, e.g. to ask for disc 2 |
+| Model 2 (top lid) | The lid has its own button | The 2.00W (Model 2) BIOS still has DRVOPEN and sends the drive the same "open door" command; whether a Model 2 drive does anything with it is untested |
+| CDX / Multi-Mega, WonderMega, X'Eye, LaserActive | - | Untested |
+
+- After DRVOPEN the status word reads 0x4000 (tray open) until the tray is closed. Then the BIOS reads the new
+  disc's table of contents itself (DRVINIT).
+- Anything read from the old disc is then stale: a game opens its files again (38). A stack with a root directory
+  cache (section 6, Sonic R4K) must clear it.
+
+### 22d. The BIOS's 11 extra calls 0x22-0x2C (US 2.00W): what each is
+
+They are listed in the same table as the queued calls 0x02-0x21, but **they are not functions**: they are the
+states of the BIOS's own drive state machine. A queued call puts its number in the state slot; the BIOS moves to
+these states itself. A game calling one would drop the state machine into a state without the step that normally
+leads to it (no track, no time). **Not proposed as commands.** What each one does, from the 2.00W code:
+
+| Code | What it does | The BIOS goes there from |
+|---|---|---|
+| 0x22 | After reading the table of contents: waits for the drive to report "paused", then holds paused at the first track (status 0x0500, drive light "disc in"; goes on as 0x28) | DRVINIT (0x10) without the play flag; power-on (0x2C) |
+| 0x23 | After reading the table of contents: waits for the drive to report "playing", then plays on (status 0x0100, light "access"; goes on as 0x25) | DRVINIT with bit 7 of its first byte set (play the first track) |
+| 0x24 | Stopped: status 0x0000. Watches the drive; if the tray opens, the disc is missing or the tray moves, goes to 0x01 | MSCSTOP (0x02); standby (0x0B) |
+| 0x25 | Playing on: status 0x0100. Follows the current track number; at the end of the disc (lead-out) pauses (0x03) | MSCPLAY (0x11), MSCPLAYT (0x14), MSCPAUSEOFF after MSCSEEK / MSCSEEKT |
+| 0x26 | Playing one track: when the next track starts, or at the lead-out, pauses (0x03) | MSCPLAY1 (0x12); MSCPAUSEOFF after MSCSEEK1 (0x19) |
+| 0x27 | Repeating a track: when the next track starts, or at the lead-out, calls MSCPLAYR (0x13) again with the same track: a new seek every time round | MSCPLAYR (0x13) |
+| 0x28 | Paused after a music seek: status 0x0500. Stops the CD data controller and counts frames; after the spin-down delay, standby (0x0B) | MSCSEEK (0x15), MSCSEEKT (0x16), MSCSEEK1 (0x19), MSCPAUSEON (0x03), 0x22 |
+| 0x29 | Scanning: status 0x0300. When the drive plays, seeks or reaches the lead-out, pauses (0x03) | MSCSCANFF (0x05), MSCSCANFR (0x06) |
+| 0x2A | Reading data: watches the CD data controller. On an error it starts the read again, up to 3 times; then pauses (0x0C) | ROMREAD (0x17), ROMREADN (0x20), ROMREADE (0x21), ROMPAUSEOFF (0x09) |
+| 0x2B | Data read paused, or held after a data seek: status 0x0505. Counts frames; after the spin-down delay, standby (0x0B) | ROMSEEK (0x18), ROMPAUSEON (0x08) |
+| 0x2C | Power-on: drive light "ready", the CD data controller stopped. If the tray is open or moving, goes to 0x01; otherwise reads the table of contents as DRVINIT does, then 0x22 | The BIOS's start-up (its first state) |
+
+- **The Model 1 BIOS 1.10** (read in ares): its table has 0x00-0x2B, 44 entries (2.00W: 45). It has no 0x2C: the
+  power-on step with the tray check is new in 2.00W. Its 0x22-0x2B were not compared one by one with 2.00W's.
+- **Also undocumented in the same table (2.00W):**
+  - 0x00: no disc (status 0x1000, light "ready");
+  - 0x01: no disc, a bad disc or a drive error (light "error"), then DRVOPEN's steps: the tray is opened if it
+    is not open already (0x24 and 0x2C go here when the tray opens, the disc is missing or the tray moves);
+  - 0x0B: standby: the drive stopped after the spin-down delay, the last play kept for a resume;
+  - 0x0C: pause after a data read failed three times;
+  - 0x0D-0x0F and 0x1A-0x1F do nothing.
+
+### 22e. Backup RAM: the two undocumented calls, and what format does
+
+**`_BURAM` 9 and 10** (megadev: `BRM__UNKNOWN0` / `1`; 2.00W code):
+- 9 copies the first 64 bytes of the internal backup RAM (`0xFE0000`, odd bytes) to the buffer at A0.
+- 10 writes 64 bytes from A0 there, then checks the first 4.
+- Raw bytes, no file system. Not proposed.
+
+**BRMFORMAT (6)** (2.00W code). It does not clear the data area. It rewrites the backup RAM's format block, which
+BRMINIT finds:
+- the volume name `___________`;
+- the number of files: 0;
+- the free blocks: all;
+- the marks `SEGA_CD_ROM` and `RAM_CARTRIDGE___`.
+
+So every file of every game is gone from the directory: the space counts as free and is written over by the next
+saves. Call BRMINIT first (megadev). Proposal 96 asks for a key and the game asks the player twice.
