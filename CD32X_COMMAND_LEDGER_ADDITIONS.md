@@ -120,10 +120,12 @@ move OpenJazz to MD 38-41 was not carried out: OpenJazz REV kept 37-40.
 | **75** | BootCamp `sdcard/`: `SDSAVE_CMD_IN` (section 18) |
 | **78** | **BootCamp stack, `VSPLIT=1` (needs `GENPLANE=1`): V scroll line split** - the planes' V scroll changed part-way down the screen by the Genesis H interrupt; double-buffered list (sections 21, 21a) |
 | **80** | Kobo path only (Sonic CD 2011): the stamp floor (section 6). Not on this stack, but keep it clear |
+| **84** | **BootCamp `traytest/` (`TRAYTEST=1`, merged into a copy of the stack): CD status** - BIOS CDBSTAT's table (section 22). Ares only (2 Nov 2026) |
+| **90** | **BootCamp `traytest/` (`TRAYTEST=1`): the tray** - COMM2 1 open (DRVOPEN), 0 close and read the disc (DRVINIT) (section 22). Ares only (2 Nov 2026) |
 
-**Free on this stack (31 Oct 2026):** 39-43, 49, 55, **76, 77, 79, 81 and up** (78 went to `VSPLIT` the same day,
+**Free on this stack (2 Nov 2026: 84 and 90 went to `traytest/`, section 22):** 39-43, 49, 55, **76, 77, 79, 81-83, 85-89, 91 and up** (78 went to `VSPLIT` on 31 Oct,
 section 21; 76 / 77 are the ones section 18 asks `sdcard/` to move to). Free on every stack (this one, Kobo,
-OpenTyrian): **76, 77, 79, 81 and up.** The old line "69 and up" was behind the code by eight numbers
+OpenTyrian): **76, 77, 79, 81-83, 85-89, 91 and up.** The old line "69 and up" was behind the code by eight numbers
 (69-75: OpenJazz REV, SuperTux, Rayman, `sdcard/`); BootCamp docs/03 had it right (72-79, 81+) until
 Rayman and `sdcard/` took 72-75 on 26-27 Oct.
 
@@ -901,8 +903,9 @@ routines matches ares.
 
 **Status of everything in this section: proposed, untested as of 2 Nov 2026.**
 - Nothing here is in any Sub-CPU program: not built, not run in an emulator, not run on a console.
-- The numbers 81-98 are proposals, not taken. Section 3's free list is unchanged until a command is built. Check it
-  before building one of these, and renumber here if a number has gone meanwhile.
+- The numbers 81-98 are proposals, not taken, **except 84 and 90**: built 2 Nov 2026 in the BootCamp's
+  `traytest/` (the tray test disc, `traytest/merge_tray.py`, `TRAYTEST ?= 0`), run in ares only, not on a console;
+  section 3 lists them. Check section 3 before building any of the others, and renumber here if a number has gone.
 - When one is built: behind a switch (`HWFLAGS`), its own section, its status raised as it is proven, and its row
   taken out of this list.
 
@@ -962,13 +965,13 @@ Every proposal below uses calls the stack does not make.
 | 81 | CD music pause / resume | 1 pause, 0 resume | - | - | MSCPAUSEON 0x03 / MSCPAUSEOFF 0x04 | A pause menu keeps the song's place; today 54 stops it and 45 starts it from the top |
 | 82 | CD music volume / fade | target 0-1024 (1024 = full) | COMM8 = slope; 0 = at once | - | FDRSET 0x85 / FDRCHG 0x86 | Fades at level ends, a music volume option, music lower under speech. **45 calls FDRSET 0x400 every time it starts a track**: send 82 after 45, or change 45 behind the same switch |
 | 83 | Cue a track | track; bit 15 = when started, play this track only (MSCSEEK1) | - | - | MSCSEEK 0x15 / MSCSEEK1 0x19 | The drive waits at the start of the track; 81 (resume) starts it with no seek, so a short jingle starts on time |
-| 84 | CD status and music position | - | - | COMM8L = track << 24 \| time in the track (BCD mm:ss:ff); COMM12 = the BIOS status word (0x0000 stopped, 0x0100 playing, 0x0300 scanning, 0x0500 paused, 0x1000 no disc, 0x4000 tray open; bit 15 = busy) | CDBSTAT 0x81 | Carry the music on after a disc read (with 85), sync to the music, a CD player's time; after 90, see the tray open, close and the new disc read |
+| 84 | CD status and music position (**built: `traytest/`, ares only**) | 0 status, 1 position, 2 disc time | - | COMM2 0: COMM12 = the BIOS status word (0x0000 stopped, 0x0100 playing, 0x0300 scanning, 0x0500 paused, 0x1000 no disc, 0x2000 reading the disc, 0x4000 tray open; bit 15 = busy), COMM8L = the drive's status word << 16 \| first track << 8 \| last track. COMM2 1: COMM12 = current track (low byte), COMM8L = time in the track (BCD mm ss ff 00). COMM2 2: COMM12 = the drive lights, COMM8L = time on the disc | CDBSTAT 0x81 (its table at 0x5E80 in the US BIOS 1.10 and 2.00W) | Carry the music on after a disc read (with 85), sync to the music, a CD player's time; after 90, see the tray open, close and the new disc read |
 | 85 | Play from a time / seek to a time | 0 play, 1 seek and hold | COMM8L = disc time (BCD mm:ss:ff:00) | - | MSCPLAYT 0x14 / MSCSEEKT 0x16 | With 84, a song goes on where it stopped. MSCPLAYT plays on into the next tracks (the 0x25 play): the game stops it at the track's end |
 | 86 | Disc track list | track 1-99; 0 = first and last track numbers | - | COMM8L = the track's table entry (start time and type: data or audio); for 0: first << 8 \| last | CDBTOCREAD 0x83 | Check the disc has the music tracks before using them; a CD player screen |
 | 87 | Scan | 1 forward, 2 back, 0 off | - | - | MSCSCANFF 0x05 / MSCSCANFR 0x06 / MSCSCANOFF 0x07 | A CD player screen |
 | 88 | Drive lights | 0-7 (ready, disc in, access, standby, error, modes 5-7: megadev's table); `0x8000` = back to the BIOS | - | - | LEDSET 0x95 | A sign on the console itself when the screen shows nothing (a stuck load, a console test) |
 | 89 | Spin-down delay | ticks of 1/75 s (megadev: normal range 0x1194-0xFFFE; 0xFFFF never stops and can damage the drive) | - | - | CDBPAUSE 0x84 | Keep the disc spinning through a pause menu, so 81 resumes without a spin-up and a seek |
-| 90 | Open the tray | - | - | COMM12 = 1 asked | DRVOPEN 0x0A | "Insert disc 2", a disc swap. Not every model: 22c |
+| 90 | The tray (**built: `traytest/`, ares only**) | 1 open, 0 close and read the disc | - | COMM12 = 1 asked, 0 refused | DRVOPEN 0x0A / DRVINIT 0x10 (parameters 01 FF: closes an open tray) | "Insert disc 2", a disc swap. Not every model: 22c |
 | 91 | Backup RAM status | - | - | COMM8L = free blocks << 16 \| number of files; COMM12 = 0 no backup RAM, 1 unformatted, 2 other format, 3 ready | BRMINIT 0, BRMSTAT 1 | Say why a save failed (unformatted, full) instead of failing silently. SuperTux reported that backup RAM saving never worked on its console: this would tell why |
 | 92 | Backup RAM directory | number of files to skip | - | the 4 KB buffer (read with 57): up to 255 entries of 16 bytes (name 11 + 0, start, blocks); COMM12 = entries | BRMDIR 7 | List every game's saves, as the Sega CD's own screen does |
 | 93 | Backup RAM: read a file | part 0-1 | - | buffer bytes 0-4079 = that part of the file; COMM8L = blocks << 16 \| mode; COMM12 = 1 ok, 0 not found, 2 part past the end | BRMSERCH 2, BRMREAD 3 | Any file by name. The Sub-CPU reads the whole file (up to 8 KB) into its own work area and hands it out in 4080-byte parts |
