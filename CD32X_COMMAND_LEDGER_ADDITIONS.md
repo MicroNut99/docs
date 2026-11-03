@@ -1216,5 +1216,43 @@ it", "implement it anyway"). **No number:** it changes STREAM's read-ahead (sect
   Mission 2: Mission 2's 4 pages, then Mission 3's, from the disc), counters shown in COMM14 by a diagnostic build
   (not kept): without the switch, 2 lost-sector restarts in Mission 2's load; with it, 4 pauses in that load and 7 by
   Mission 3's end, nothing lost, the game the same. Both loads 42 s either way (at ares's 1-second log): the time
-  goes to the drive's speed (5.7 MB at 150 KB/s is 38 s) and a seek per file, not to lost sectors.
+  goes to the drive's speed (5.7 MB at 150 KB/s is 38 s) and a seek per file, not to lost sectors. With ZCHUNK
+  (section 27) the drive outruns the unpacking and the ring fills: pauses then, resumed only when the ring is low
+  (ZCHUNK's `cd_chunk_read` condition), so one seek serves many chunks.
+
+## 27. ZCHUNK-1 (Metal Slug CD32X, 3 Nov 2026): command 100, CMD 46 from an LZ4-packed file (Sub-CPU `main.c`, switched)
+
+**Owner:** Metal Slug CD32X (the owner: "There should not be much loading"). **Number:** command **100** (free on
+every stack: section 3's list, "100 and up"). No listener routine.
+
+**Why:** a mission load copies ~5.7 MB (4 pages of 32 KB chunks) from the disc; the drive gives 150 KB/s at most, so
+~42 s however the reading is done (section 26). Metal Slug's tile pages pack ~2.1x with LZ4: the drive reads half.
+
+**Boot stack: behind a switch** (`ZCHUNK ?= 0`, `#if OL_ZCHUNK`, blocks `DX-ZCHUNK` in `main.c` and the
+`Makefile`, out of the hash by `tools/check_boot.py`; with `MODE1=1` the Makefile adds `-DOL_ZMODE1=1`). Needs
+`STREAM=1`.
+
+| CMD | COMM2 | COMM8L | Reply COMM12 |
+|---|---|---|---|
+| 100 | as 46: the chunk (bit 15 = no read-back) | the chunk's file length as 46 sees it (Metal Slug: 0x200000, the page) | 0 ok, 2 a bad block (as 46: non-zero = failed) |
+
+- **The file** (Metal Slug's `tools/edcd/zpack.py`): sector 0 = `MSZ1`, the number of chunks (u32), then 12 bytes a
+  chunk, big-endian: its first sector (u16), its sectors (u16), the packed length (u32; bit 31 = stored as it is),
+  the chunk's length (u32). Each chunk's block starts a sector, in order, so the stream reads on from one to the next.
+  The blocks: LZ4's block format (`lz4.block`, high compression), at most 34 KB.
+- **The command:** the table (sector 0) read once a file (`zt`); the block read with `cd_chunk_read` into `zbuf`,
+  unpacked into the Sub-CPU's Word RAM bank, where CMD 46 reads its chunk; then 46's copy to the cart. The
+  unpacker is 68000 code (`lz4_unpack`, ~100 ms a chunk in ares: the C version took ~230 ms), pumping the read-ahead
+  every 4 KB.
+- **With the cartridge-boot listener (`OL_ZMODE1`):** the copy is one listener command of 32 KB (`m1_xfer` masks
+  the 68000's interrupts 1 KB at a time), sent without waiting; meanwhile the Sub-CPU unpacks the **next** chunk
+  into `zout` (PRG-RAM); the next command, if it asks for that chunk of that file, copies `zout` into Word RAM
+  instead of reading and unpacking. And no read-back, window check or text for 100 (5 listener calls a chunk fewer).
+- The read-ahead ring is 96 sectors (192 KB) instead of 32 when the switch is on (`ST_RING`). The program's end
+  goes from ~0x38800 to ~0x60800 (PRG-RAM, the stack below 0x80000).
+- **Status (3 Nov 2026): ares only, not on a console.** Metal Slug's EDCD from the recorded game at the end of
+  Mission 2: Mission 2's 4 pages and Mission 3's, each load **30 s** (unpacked, the same build: 42 s); the game the
+  same after. Per chunk (COMM14 in a diagnostic build, not kept): ~100-115 ms unpacking, the 68000's copy done
+  within it, ~2 vblanks for the rest. The drive's own time is ~110 ms a chunk (8.2 sectors), so the unpacking
+  is now the limit.
 
