@@ -1121,10 +1121,12 @@ table (up to 224 words), colours. The 32X frame buffer is the one memory both th
   | `0x1nnn` | n words | each to the VDP control port `0xC00004` (address commands as two words, register writes, the auto-increment) |
   | `0x2nnn` | n words | each to the data port `0xC00000` |
   | `0x3nnn` | n words | kept in the listener (`fb_keep`, 256 words in all) to run at the commit; they may hold only `0x1nnn` / `0x2nnn` runs |
+  | `0x4nnn` | n words: n / 2 pairs (frame buffer word index, word) | kept (`fb_jrn`, 68000 RAM `0xFFC000`, 2,048 words) and **written into the frame buffer at the commit**, after its runs (added 3 Nov 2026, DraculaX_32X docs/65: the SH2 sees only the buffer not shown, so tables it keeps in both buffers go into the other one once the swap has been) |
 
   Nothing is assumed of the VDP's state: the list sets its own addresses and increment, and the increment is left as
   the list leaves it (62-67's routines set their own).
-- **The commit (COMM2 = 1)** is for what must change at one vblank: the plane and H scroll table base registers of
+- **The commit (COMM2 = 1)** runs the kept runs, then writes the kept pairs (`0x4nnn`) into the frame buffer: the SH2
+  gives the 68000 the frame buffer for it too (`FM` = 0) and takes it back after. It is for what must change at one vblank: the plane and H scroll table base registers of
   double-buffered maps and tables, V scroll, colours. The game sends its lists during the frame (into the Genesis
   areas not shown) and the commit right after its 32X swap is seen: one command, a few words, inside the vblank.
 - **Level 4 masked** while it runs (VSPLIT's dispatcher: routine 39 is not in its unmasked list), so `hint_vs` never
@@ -1139,6 +1141,8 @@ table (up to 224 words), colours. The 32X frame buffer is the one memory both th
 | `FBVDP=0` | the listener's bytes and `main.c`'s code identical to the stack before (`GENPLANE` / `VSPLIT` on or off) |
 | `hello`, `GENPLANE=1 VSPLIT=1` against `+ FBVDP=1` | frames 1800 and 2100 identical, `4B10` |
 | DraculaX_32X `dxspeed` `FBVDP_TEST` | a list setting CRAM 0 red, the backdrop register and the display on: the Genesis backdrop red; then 10 lists of 4,000 words: every reply 1, 15 refreshes |
+
+| DraculaX_32X `dxspeed` `BG=1` (3 Nov 2026, docs/65) | the running game's background on plane A: each picture's list (op 0, not waited for: the game's code runs meanwhile) and the commit in the vblank after the swap with the `0x4nnn` pairs; stage 4's 600 pictures in ares, screenshots equal to the PC's pictures |
 
 **Open on the console:** the 68000 reading the frame buffer at this pace while the SH2 is off it; the `FM` hand-over
 between two commands of a frame.
