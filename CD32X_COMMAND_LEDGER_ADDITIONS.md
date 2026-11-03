@@ -101,7 +101,7 @@ move OpenJazz to MD 38-41 was not carried out: OpenJazz REV kept 37-40.
 | 45 / 54 | play CD track (bit 15 = once, OpenLara OL-4; **Sonic's Kobo path has no bit 15: repeat only**) / stop music |
 | 46 | chunk → cart (bit 15 = no read-back); reply COMM12 = 0 ok / 1 bad. Switches: `FMVRING` bit 14 ring, reply \| 0x100 (section 12); `CARTW` word copy, MD 27 (section 13); `STREAM` read-ahead (section 10) |
 | 47 | chunk compare with the cart (`CMD_CART_TO_FB` also has the value 47 in `main.c`; its branch is never reached) |
-| 48 | pad (+ sound effect in the high byte, COMM2 = its volume); reply COMM8 pad, COMM10 ticks, in one 32-bit write. Answered before any other command |
+| 48 | pad (+ sound effect in the high byte, COMM2 = its volume); reply COMM8 pad, COMM10 ticks (pad 2 when built `PAD2=1`, section 23), in one 32-bit write. Answered before any other command |
 | 50 / 51 | file chunk → frame buffer (off-screen 16 KB / splash 32 KB). **Both write COMM12 32 bits wide** (chunk, sectors, a data word): the one place the stack itself overwrites COMM14 |
 | 52 | Genesis display on / off |
 | 53 | load sound pack `SFXnn.BIN`; reply COMM12 = number of effects, 0 = failed |
@@ -1061,3 +1061,23 @@ BRMINIT finds:
 
 So every file of every game is gone from the directory: the space counts as free and is written over by the next
 saves. Call BRMINIT first (megadev). Proposal 96 asks for a key and the game asks the player twice.
+
+
+## 23. PAD2-1 (Metal Slug CD32X, 3 Nov 2026): pad 2 in command 48's reply (Sub-CPU `main.c`, switched)
+
+**Boot stack: one change, behind a switch** (`#if OL_PAD2`, `PAD2 ?= 0`, block `DX-PAD2` in `main.c` and the
+`Makefile`; `PAD2=0` builds `main.c` as before: `tools/check_boot.py` takes the block out before the hash and
+fingerprints it in `GENPLANE_BLOCKS.md5`). **No new command number, no listener change**: the 68000's vblank
+handler already reads both pads (`hw_md.s`: `get_pad` 0 into `0xA12018`, `get_pad` 1 into `0xA1201A`); the
+Sub-CPU's pad fast path replies with the second one too.
+
+| | Command 48's reply (before) | `PAD2=1` |
+|---|---|---|
+| COMM8 | pad 1 (`SEGA_CTRL_*`, `0xF000` = no pad) | the same |
+| COMM10 | the 68000's vblank counter (low 16 bits) | **pad 2** (`GET_PAD(1)`, the same bits; `0xF000` = no pad) |
+
+- A game built for `PAD2=1` must not use COMM10 as a clock; one that does (Kobo's 30 ms step) keeps `PAD2=0`.
+- Metal Slug CD32X (MicroNut99/FBNeo_MetalSlug `tools/edcd/build_edcd.sh`): the launcher's (MODE1) and the
+  disc's Sub-CPU programs built `PAD2=1`; the game (`m3main.c`, `M3_PAD2`) reads COMM10 as the Neo Geo's player 2.
+- Status: run in emulation (ares). Not yet on the console.
+
