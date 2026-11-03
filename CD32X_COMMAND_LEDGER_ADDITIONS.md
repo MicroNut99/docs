@@ -1079,5 +1079,6 @@ Sub-CPU's pad fast path replies with the second one too.
 - A game built for `PAD2=1` must not use COMM10 as a clock; one that does (Kobo's 30 ms step) keeps `PAD2=0`.
 - Metal Slug CD32X (MicroNut99/FBNeo_MetalSlug `tools/edcd/build_edcd.sh`): the launcher's (MODE1) and the
   disc's Sub-CPU programs built `PAD2=1`; the game (`m3main.c`, `M3_PAD2`) reads COMM10 as the Neo Geo's player 2.
-- Status: run in emulation (ares). Not yet on the console.
+- Status: built `PAD2=1` and run in ares (Metal Slug CD32X v8: a whole attract and every mission load with the
+  game reading COMM10; no pad 2 pressed - the ares headless runner presses pad 1 only). Not yet on the console.
 
