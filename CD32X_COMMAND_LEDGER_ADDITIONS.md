@@ -79,7 +79,7 @@ routines 1-35) unless it is built with `GENPLANE=1`; then it has SuperTux's 36 /
 
 | Listener | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | `MD_CMD_END` |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| BootCamp `stack/subcpu/hw_md.s` | - (`GENPLANE=1`: `set_vsram`) | - (`GENPLANE=1`: `copy_vram_col`) | - (`VSPLIT=1`: `set_vs_line`, section 21) | - (`FBVDP=1`: `fb_list`, section 24) | - | - | - | - | - | - | 36 (`GENPLANE=1`: 38; `VSPLIT=1`: 39; `FBVDP=1`: 40) |
+| BootCamp `stack/subcpu/hw_md.s` | - (`GENPLANE=1`: `set_vsram`) | - (`GENPLANE=1`: `copy_vram_col`) | - (`VSPLIT=1`: `set_vs_line`, section 21) | - (`FBVDP=1`: `fb_list`, section 24) | - (`TILEP=1`: `tile_copy`, section 25; 36-39 `cmd_nop` when their switches are off) | - | - | - | - | - | 36 (`GENPLANE=1`: 38; `VSPLIT=1`: 39; `FBVDP=1`: 40; `TILEP=1`: 41) |
 | SuperTux REV | `set_vsram` | `copy_vram_col` | - | - | - | - | - | - | - | - | 38 |
 | D32XR CD32X | `set_scroll` (HUR genbg: plane A/B h- and v-scroll in one call) | - | - | - | - | - | - | - | - | - | 37 |
 | OpenJazz REV (`d486f58`) | `set_vsram` | `genbg_load` | `genbg_start` | `genbg_off` | `genbg_cell` | `rv_copy_fast` (R7: cart ↔ Word RAM, 48 bytes a `movem`, RV = 1) | `bmd_setup` | `bmd_queue` | `bmd_off` | `cmd_nop` (free) | 46 |
@@ -123,8 +123,9 @@ move OpenJazz to MD 38-41 was not carried out: OpenJazz REV kept 37-40.
 | **80** | Kobo path only (Sonic CD 2011): the stamp floor (section 6). Not on this stack, but keep it clear |
 | **84** | **BootCamp `traytest/` (`TRAYTEST=1`, merged into a copy of the stack): CD status** - BIOS CDBSTAT's table, and (T4) the BIOS ROM's header and the version registers (section 22). Ares only (2 Nov 2026; T3 with no cart, and with the 4 / 16 MB carts and the EverDrive PRO in place) |
 | **90** | **BootCamp `traytest/` (`TRAYTEST=1`): the tray** - COMM2 1 open (DRVOPEN), 0 close and read the disc (DRVINIT) (section 22). Ares only (2 Nov 2026; T3 as 84) |
+| **99** | **BootCamp stack, `TILEP=1`: a tile page's cache** - tiles copied from one window-1 page into the slots of another by listener routine 40 `tile_copy` (Metal Slug CD32X, section 25) |
 
-**Free on this stack (3 Nov 2026: 79 went to `FBVDP`, section 24; 84 and 90 to `traytest/` on 2 Nov, section 22):** 39-43, 49, 55, **76, 77, 81-83, 85-89, 91 and up** (78 went to `VSPLIT` on 31 Oct,
+**Free on this stack (3 Nov 2026: 99 went to `TILEP`, section 25; 79 went to `FBVDP`, section 24; 84 and 90 to `traytest/` on 2 Nov, section 22):** 39-43, 49, 55, **76, 77, 81-83, 85-89, 91-98, 100 and up** (78 went to `VSPLIT` on 31 Oct,
 section 21; 76 / 77 are the ones section 18 asks `sdcard/` to move to). Free on every stack (this one, Kobo,
 OpenTyrian): **76, 77, 81-83, 85-89, 91 and up.** The old line "69 and up" was behind the code by eight numbers
 (69-75: OpenJazz REV, SuperTux, Rayman, `sdcard/`); BootCamp docs/03 had it right (72-79, 81+) until
@@ -1140,3 +1141,52 @@ table (up to 224 words), colours. The 32X frame buffer is the one memory both th
 
 **Open on the console:** the 68000 reading the frame buffer at this pace while the SH2 is off it; the `FM` hand-over
 between two commands of a frame.
+
+
+## 25. TILEP (Metal Slug CD32X, 3 Nov 2026): command 99 and listener routine 40, a tile page's cache (switched)
+
+**Owner:** Metal Slug CD32X (MicroNut99/FBNeo_MetalSlug), at the owner's request ("no level should be missing tiles",
+3 Nov 2026). **Numbers:** command 99 - free on every stack (sections 3 and 4); 91-98 stay clear for section 22's
+proposals. Listener routine **40** (`tile_copy`) - after FBVDP's 39; when GENPLANE, VSPLIT or FBVDP is off, its
+numbers 36-39 are `cmd_nop` in the table, so 40 is 40 on every build.
+
+**Why:** the SH2 sees one 2 MB page of the cart at a time (window 1, command 68). A game whose sprite tiles are
+cut into pages by place draws a picture from the page shown; a picture that needs a tile of another page cannot draw
+it. With this command each page keeps P slots: a tile another page has is copied in when a picture wants it.
+
+**Boot stack: behind a switch** (`TILEP ?= 0`: `#if OL_TILEP` in `main.c`, `--defsym DX_TILEP=1` for `hw_md.s`;
+blocks `DX-TILEP` in `main.c`, `hw_md.s` and the `Makefile`, taken out before the hash by `tools/check_boot.py`).
+Needs the EverDrive launcher's listener (MODE1 + M1PAGE): built without them, routine 40 returns -1 and 99 replies
+`0xFFFF`.
+
+**TILEP-1 (first version, replaced the same day):** an op per tile through the listener's routine 26 and MODE1-9's
+page register - nine copies and two page writes, each a listener call: ~10 ms a tile in ares (Metal Slug, 4,585
+tiles in 230 s of play, the game down to ~30 % where it copied most). Not kept.
+
+**TILEP-2 (this one):** one command for all a picture's tiles; the 68000 does the copies itself and the SH2 hands
+it the tiles through the 32X COMM registers while the command runs.
+
+| | |
+|---|---|
+| COMM2 (at the command) | p: the page window 1 shows (1-6) |
+| COMM8L (at the command) | where the tile part (`MSPG`) starts in every page |
+| then, tile k = 0, 1, ... | the 68000 puts `0x8000 \| k` (12 bits) in COMM12; the SH2 puts the leaf's offset in page p / 4 (COMM4 = bits 0-15, COMM6 bits 0-2 = bits 16-18), the page q that has the tile (COMM6 bits 8-10), the tile's index j in q (COMM8), the slot s (COMM10), and last `0x4000 \| k` in COMM2; `0x7FFF` in COMM2 = no more |
+| Reply COMM12 | the tiles copied; `0xFFFF` refused (p not 1-6, the offset, no `MSPG` in page p, or no slots) |
+
+- **The page (Metal Slug's `tile_pack.py --patch`):** the header's rows and flags offsets (bytes 28, 24), the first
+  slot's index (36), the slots (40) and the slot table's offset (44); a tile is 128 bytes of rows at rows + index ×
+  128 and 4 bytes of flags at flags + index × 4.
+- **Routine 40, `tile_copy(p, off)`** (`hw_md.s`): page p's header read once. Each tile with RV = 1 and interrupts
+  masked: window 1 = page q (CTRL4-7 = 4q..4q+3, MODE1-9's banks), q's rows and flags to `m1_buf`; window 1 = what
+  `m1_wb` says (page p); the slot table's entry s (a leaf's offset, its value before) read; then **with W on and no
+  other write by the 68000** (MODE1-6): that leaf gets its value back (the slot's last tile is "not here" again), the
+  rows and flags into p's index first + s, the table's entry = this leaf, `0x80000000 | q << 24 | j`, and last the
+  leaf = index << 16 | `0xFFFE`; W off, RV = 0. A tile whose page q has no `MSPG` is skipped. The COMM waits are
+  bounded (~2 s: the routine then ends and replies what it did).
+- **`main.c`:** reads COMM2 and COMM8L, calls routine 40 once, replies. No Word RAM.
+- **The SH2's side:** both SH2s off the cart for the whole command (Metal Slug: `cd_tiles`, the slave parked in
+  SDRAM, the master waiting in SDRAM with its interrupts masked, as command 68's `cd_rv`).
+- **Status (3 Nov 2026): ares only, not on a console.** Metal Slug's EDCD build (`build/edcd_v12`, the launcher's
+  and the disc's Sub-CPU programs built `TILEP=1`), 230 s of play in ares (console timing): 5,667 tiles copied in,
+  **0 tiles missing**, the picture's build step 8.3 ms (TILEP-1: 18.3 ms), the game at 72 % of its speed (TILEP-1:
+  66 %). The graphics checked in screenshots.
