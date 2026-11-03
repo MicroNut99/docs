@@ -1142,6 +1142,10 @@ table (up to 224 words), colours. The 32X frame buffer is the one memory both th
   when it sees the swap). Armed runs still waiting when any command comes (`vblank_int` held off) are run first. The
   SH2 must not swap itself after an op 2 / 3, and must send nothing else that touches the VDP before the swap is
   shown (`vblank_int` interrupts the command loop).
+  Since 3 Nov 2026 (DraculaX docs/68): a list that ends during a vertical blank **waits for the display** before
+  writing FS (a swap at once in a blank came before the SH2's interrupt could write the sprites' colours for it), and
+  **COMM10 = `0xFB00` | the buffer** once FS is written (COMM8L, the list's offset, has been read by then), so the
+  SH2's vblank interrupt knows the swap is at this blank before the command's answer comes.
 - **Level 4 masked** while it runs (VSPLIT's dispatcher: routine 39 is not in its unmasked list), so `hint_vs` never
   moves the VDP's address under it.
 - **Speed (ares):** 10 lists of 4,000 data words (VRAM) in 15 refreshes: **about 6.3 µs a word** during the display,
