@@ -124,8 +124,9 @@ move OpenJazz to MD 38-41 was not carried out: OpenJazz REV kept 37-40.
 | **84** | **BootCamp `traytest/` (`TRAYTEST=1`, merged into a copy of the stack): CD status** - BIOS CDBSTAT's table, and (T4) the BIOS ROM's header and the version registers (section 22). Ares only (2 Nov 2026; T3 with no cart, and with the 4 / 16 MB carts and the EverDrive PRO in place) |
 | **90** | **BootCamp `traytest/` (`TRAYTEST=1`): the tray** - COMM2 1 open (DRVOPEN), 0 close and read the disc (DRVINIT) (section 22). Ares only (2 Nov 2026; T3 as 84) |
 | **99** | **BootCamp stack, `TILEP=1`: a tile page's cache** - tiles copied from one window-1 page into the slots of another by listener routine 40 `tile_copy` (Metal Slug CD32X, section 25) |
+| **100** | **BootCamp stack, `ZCHUNK=1`: CMD 46 from an LZ4-packed file** - a chunk unpacked from its block (Metal Slug CD32X, section 27) |
 
-**Free on this stack (3 Nov 2026: 99 went to `TILEP`, section 25; 79 went to `FBVDP`, section 24; 84 and 90 to `traytest/` on 2 Nov, section 22):** 39-43, 49, 55, **76, 77, 81-83, 85-89, 91-98, 100 and up** (78 went to `VSPLIT` on 31 Oct,
+**Free on this stack (3 Nov 2026: 100 went to `ZCHUNK`, section 27; 99 went to `TILEP`, section 25; 79 went to `FBVDP`, section 24; 84 and 90 to `traytest/` on 2 Nov, section 22):** 39-43, 49, 55, **76, 77, 81-83, 85-89, 91-98, 101 and up** (78 went to `VSPLIT` on 31 Oct,
 section 21; 76 / 77 are the ones section 18 asks `sdcard/` to move to). Free on every stack (this one, Kobo,
 OpenTyrian): **76, 77, 81-83, 85-89, 91 and up.** The old line "69 and up" was behind the code by eight numbers
 (69-75: OpenJazz REV, SuperTux, Rayman, `sdcard/`); BootCamp docs/03 had it right (72-79, 81+) until
