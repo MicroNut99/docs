@@ -120,8 +120,8 @@ move OpenJazz to MD 38-41 was not carried out: OpenJazz REV kept 37-40.
 | **75** | BootCamp `sdcard/`: `SDSAVE_CMD_IN` (section 18) |
 | **78** | **BootCamp stack, `VSPLIT=1` (needs `GENPLANE=1`): V scroll line split** - the planes' V scroll changed part-way down the screen by the Genesis H interrupt; double-buffered list (sections 21, 21a) |
 | **80** | Kobo path only (Sonic CD 2011): the stamp floor (section 6). Not on this stack, but keep it clear |
-| **84** | **BootCamp `traytest/` (`TRAYTEST=1`, merged into a copy of the stack): CD status** - BIOS CDBSTAT's table (section 22). Ares only (2 Nov 2026) |
-| **90** | **BootCamp `traytest/` (`TRAYTEST=1`): the tray** - COMM2 1 open (DRVOPEN), 0 close and read the disc (DRVINIT) (section 22). Ares only (2 Nov 2026) |
+| **84** | **BootCamp `traytest/` (`TRAYTEST=1`, merged into a copy of the stack): CD status** - BIOS CDBSTAT's table (section 22). Ares only (2 Nov 2026; T3 with no cart, and with the 4 / 16 MB carts and the EverDrive PRO in place) |
+| **90** | **BootCamp `traytest/` (`TRAYTEST=1`): the tray** - COMM2 1 open (DRVOPEN), 0 close and read the disc (DRVINIT) (section 22). Ares only (2 Nov 2026; T3 as 84) |
 
 **Free on this stack (2 Nov 2026: 84 and 90 went to `traytest/`, section 22):** 39-43, 49, 55, **76, 77, 79, 81-83, 85-89, 91 and up** (78 went to `VSPLIT` on 31 Oct,
 section 21; 76 / 77 are the ones section 18 asks `sdcard/` to move to). Free on every stack (this one, Kobo,
@@ -905,7 +905,9 @@ routines matches ares.
 - Nothing here is in any Sub-CPU program: not built, not run in an emulator, not run on a console.
 - The numbers 81-98 are proposals, not taken, **except 84 and 90**: built 2 Nov 2026 in the BootCamp's
   `traytest/` (the tray test disc, `traytest/merge_tray.py`, `TRAYTEST ?= 0`), run in ares only, not on a console;
-  section 3 lists them. Check section 3 before building any of the others, and renumber here if a number has gone.
+  section 3 lists them. The tray test T3 needs no cart: its SH2 program runs from SDRAM in CDLOADER's place
+  (built with the stack's `cdl_crt0.s` and `cdloader.ld`), and the copy's start-up cart check is off
+  (`TRAY_NOCART ?= 0`, the stack's own `KOBO_NOCART 1`). Not a command: no number. Check section 3 before building any of the others, and renumber here if a number has gone.
 - When one is built: behind a switch (`HWFLAGS`), its own section.
 
 **Where it comes from:**
