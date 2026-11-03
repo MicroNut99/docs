@@ -79,7 +79,7 @@ routines 1-35) unless it is built with `GENPLANE=1`; then it has SuperTux's 36 /
 
 | Listener | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | `MD_CMD_END` |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| BootCamp `stack/subcpu/hw_md.s` | - (`GENPLANE=1`: `set_vsram`) | - (`GENPLANE=1`: `copy_vram_col`) | - (`VSPLIT=1`: `set_vs_line`, section 21) | - | - | - | - | - | - | - | 36 (`GENPLANE=1`: 38; `VSPLIT=1`: 39) |
+| BootCamp `stack/subcpu/hw_md.s` | - (`GENPLANE=1`: `set_vsram`) | - (`GENPLANE=1`: `copy_vram_col`) | - (`VSPLIT=1`: `set_vs_line`, section 21) | - (`FBVDP=1`: `fb_list`, section 24) | - | - | - | - | - | - | 36 (`GENPLANE=1`: 38; `VSPLIT=1`: 39; `FBVDP=1`: 40) |
 | SuperTux REV | `set_vsram` | `copy_vram_col` | - | - | - | - | - | - | - | - | 38 |
 | D32XR CD32X | `set_scroll` (HUR genbg: plane A/B h- and v-scroll in one call) | - | - | - | - | - | - | - | - | - | 37 |
 | OpenJazz REV (`d486f58`) | `set_vsram` | `genbg_load` | `genbg_start` | `genbg_off` | `genbg_cell` | `rv_copy_fast` (R7: cart ↔ Word RAM, 48 bytes a `movem`, RV = 1) | `bmd_setup` | `bmd_queue` | `bmd_off` | `cmd_nop` (free) | 46 |
@@ -119,13 +119,14 @@ move OpenJazz to MD 38-41 was not carried out: OpenJazz REV kept 37-40.
 | **74** | **two owners:** Rayman: plane A scroll at the vertical blank (section 17, MD 38); BootCamp `sdcard/`: `SDSAVE_CMD_OUT` (section 18) |
 | **75** | BootCamp `sdcard/`: `SDSAVE_CMD_IN` (section 18) |
 | **78** | **BootCamp stack, `VSPLIT=1` (needs `GENPLANE=1`): V scroll line split** - the planes' V scroll changed part-way down the screen by the Genesis H interrupt; double-buffered list (sections 21, 21a) |
+| **79** | **BootCamp stack, `FBVDP=1` (needs `GENPLANE=1 VSPLIT=1`): the Genesis VDP from a list in the 32X frame buffer** - map words, converted tiles, H scroll tables a running game makes; part kept for a commit after the 32X swap (section 24) |
 | **80** | Kobo path only (Sonic CD 2011): the stamp floor (section 6). Not on this stack, but keep it clear |
 | **84** | **BootCamp `traytest/` (`TRAYTEST=1`, merged into a copy of the stack): CD status** - BIOS CDBSTAT's table, and (T4) the BIOS ROM's header and the version registers (section 22). Ares only (2 Nov 2026; T3 with no cart, and with the 4 / 16 MB carts and the EverDrive PRO in place) |
 | **90** | **BootCamp `traytest/` (`TRAYTEST=1`): the tray** - COMM2 1 open (DRVOPEN), 0 close and read the disc (DRVINIT) (section 22). Ares only (2 Nov 2026; T3 as 84) |
 
-**Free on this stack (2 Nov 2026: 84 and 90 went to `traytest/`, section 22):** 39-43, 49, 55, **76, 77, 79, 81-83, 85-89, 91 and up** (78 went to `VSPLIT` on 31 Oct,
+**Free on this stack (3 Nov 2026: 79 went to `FBVDP`, section 24; 84 and 90 to `traytest/` on 2 Nov, section 22):** 39-43, 49, 55, **76, 77, 81-83, 85-89, 91 and up** (78 went to `VSPLIT` on 31 Oct,
 section 21; 76 / 77 are the ones section 18 asks `sdcard/` to move to). Free on every stack (this one, Kobo,
-OpenTyrian): **76, 77, 79, 81-83, 85-89, 91 and up.** The old line "69 and up" was behind the code by eight numbers
+OpenTyrian): **76, 77, 81-83, 85-89, 91 and up.** The old line "69 and up" was behind the code by eight numbers
 (69-75: OpenJazz REV, SuperTux, Rayman, `sdcard/`); BootCamp docs/03 had it right (72-79, 81+) until
 Rayman and `sdcard/` took 72-75 on 26-27 Oct.
 
@@ -155,6 +156,7 @@ should take numbers free on both (76 and up, 31 Oct 2026).
 | 74 | `sdcard/` **SDSAVE out** | - | - | **scroll at vblank** | - | - |
 | 75 | `sdcard/` SDSAVE in | - | - | - | - | - |
 | 78 | **V scroll line split** (`VSPLIT=1`) | - | - | - | - | - |
+| 79 | **Genesis VDP from the frame buffer** (`FBVDP=1`) | - | - | - | - | - |
 | 80 | - | - | - | - | stamp floor | - |
 
 A Sub-CPU program belongs to one game, so none of these clashes is a run-time bug; every one is a trap for
@@ -1082,3 +1084,59 @@ Sub-CPU's pad fast path replies with the second one too.
 - Status: built `PAD2=1` and run in ares (Metal Slug CD32X v8: a whole attract and every mission load with the
   game reading COMM10; no pad 2 pressed - the ares headless runner presses pad 1 only). Not yet on the console.
 
+## 24. FBVDP: command 79 and listener routine 39, the Genesis VDP from a list in the 32X frame buffer (3 Nov 2026)
+
+**Owner:** the BootCamp stack, at the owner's request for Dracula X CD32X ("Yes, add the FB→VDP command", 3 Nov 2026;
+DraculaX_32X docs/60-61).
+
+**Why:** commands 62-67 take their data from the cart (63, 64, 67) or one word a command (62, 65, 66). The SH2 cannot
+write the cart (CD32X-BootCamp docs/06 rule 9), and one word a command is about **0.44 ms** (ares, console timing:
+2,000 command-62 writes in 53 refreshes) - a frame carries about 35. A running game's background is made on the
+console each frame: map words (28-64 a column scrolled in), tiles converted for their palette, the per-line H scroll
+table (up to 224 words), colours. The 32X frame buffer is the one memory both the SH2 and the 68000 reach.
+
+**Switch:** `FBVDP ?= 0`, needs `GENPLANE=1` and `VSPLIT=1` (its table entry sits after VSPLIT's routine 38).
+- `main.c` gets `-DDX_FBVDP` through **HWFLAGS**; `hw_md.s` gets `--defsym DX_FBVDP=1`.
+- `build.sh` stops unless `FBVDP=1` comes with `GENPLANE=1 VSPLIT=1` and reached `main.c` and the listener (`fb_list`).
+- `tools/check_boot.py` strips the `DX-FBVDP` blocks (also the two nested in `DX-VSPLIT` blocks) and fingerprints
+  them in `stack/GENPLANE_BLOCKS.md5`.
+
+| CMD | Name | COMM2 | COMM8L | Reply | 68000 routine |
+|---|---|---|---|---|---|
+| 79 | the Genesis VDP from the frame buffer | 0: run the list at frame buffer offset COMM8L (even, below `0x20000`); 1: the commit - run the part the last lists kept, then forget it | the list's offset (op 0) | COMM12 = 1 ok, 0 a bad list (an unknown header, or no room to keep: the rest is not run) | **39 `fb_list`** (new) |
+
+- **The SH2's side:** it writes the list into the frame buffer it draws in (the one not shown: the 68000 sees the same
+  one at `0x840000` + the offset), **gives the frame buffer to the 68000** (`FM` = 0: the byte `0x00` to
+  `0x20004000`, then waits for bit 15 to read 0, as CDLOADER's `give_fb`), sends 79, and **takes it back** after
+  (`0x80`, waits for bit 15). While `FM` = 0 the SH2 must not touch the frame buffer, the 32X VDP registers or its
+  palette (32X manual: such an access is "interrupted by force"), its interrupt handlers included. Nothing in
+  `fb_list` touches `FM`.
+- **The list** (big-endian words, read with `move.w (a0)+`): runs, each a header and its words.
+
+  | Header | Then | Does |
+  |---|---|---|
+  | `0x0000` | - | the end |
+  | `0x1nnn` | n words | each to the VDP control port `0xC00004` (address commands as two words, register writes, the auto-increment) |
+  | `0x2nnn` | n words | each to the data port `0xC00000` |
+  | `0x3nnn` | n words | kept in the listener (`fb_keep`, 256 words in all) to run at the commit; they may hold only `0x1nnn` / `0x2nnn` runs |
+
+  Nothing is assumed of the VDP's state: the list sets its own addresses and increment, and the increment is left as
+  the list leaves it (62-67's routines set their own).
+- **The commit (COMM2 = 1)** is for what must change at one vblank: the plane and H scroll table base registers of
+  double-buffered maps and tables, V scroll, colours. The game sends its lists during the frame (into the Genesis
+  areas not shown) and the commit right after its 32X swap is seen: one command, a few words, inside the vblank.
+- **Level 4 masked** while it runs (VSPLIT's dispatcher: routine 39 is not in its unmasked list), so `hint_vs` never
+  moves the VDP's address under it.
+- **Speed (ares):** 10 lists of 4,000 data words (VRAM) in 15 refreshes: **about 6.3 µs a word** during the display,
+  the Genesis VDP's own pace for VRAM writes then. A map column is about 0.2 ms, an H scroll table 1.4 ms.
+
+**Status: emulation** (ares, the owner's ares_android headless, 4 MB cart, 3 Nov 2026):
+
+| Test | Result |
+|---|---|
+| `FBVDP=0` | the listener's bytes and `main.c`'s code identical to the stack before (`GENPLANE` / `VSPLIT` on or off) |
+| `hello`, `GENPLANE=1 VSPLIT=1` against `+ FBVDP=1` | frames 1800 and 2100 identical, `4B10` |
+| DraculaX_32X `dxspeed` `FBVDP_TEST` | a list setting CRAM 0 red, the backdrop register and the display on: the Genesis backdrop red; then 10 lists of 4,000 words: every reply 1, 15 refreshes |
+
+**Open on the console:** the 68000 reading the frame buffer at this pace while the SH2 is off it; the `FM` hand-over
+between two commands of a frame.

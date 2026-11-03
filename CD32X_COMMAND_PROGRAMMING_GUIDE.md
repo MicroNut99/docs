@@ -139,8 +139,8 @@ command only as far as its status says:
      boot.
 2. **Pick a number free on every stack.**
    - Check sections 3, 4 and 6.
-   - As of 2 Nov 2026, unused everywhere: **76, 77, 79, 81-83, 85-89, 91 and up** (84 / 90: the BootCamp's `traytest/`,
-     ledger §22; 78: the BootCamp's `VSPLIT`, ledger §21; 76 / 77 are
+   - As of 3 Nov 2026, unused everywhere: **76, 77, 81-83, 85-89, 91 and up** (79: the BootCamp's `FBVDP`, ledger §24;
+     84 / 90: the BootCamp's `traytest/`, ledger §22; 78: the BootCamp's `VSPLIT`, ledger §21; 76 / 77 are
      earmarked for `sdcard/`'s move, §18) (39–43, 49 and 55 are free on the OpenLara path
      only; 69–75 went to OpenJazz REV, SuperTux, Rayman and the `sdcard/` kit on 26–27 Oct).
 3. **Put the command behind a build switch** in the Sub-CPU (`HWFLAGS`). Leave the normal build byte-identical.
