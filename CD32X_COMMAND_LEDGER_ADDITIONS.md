@@ -999,7 +999,8 @@ research needed; presumably exclusive to the WonderMega". Nothing is known of wh
 BIOS does with them. 97 / 98 are the way to find out: read a WonderMega BIOS's two handlers first (in ares), then
 on a WonderMega. Whether a 32X runs on a WonderMega with the CD32X stack is untested too.
 
-**Inside an existing command (no number): pause the data read instead of losing it.** In STREAM (section 10), the
+**Inside an existing command (no number): pause the data read instead of losing it.** (**Built 3 Nov 2026:**
+`ROMPAUSE=1`, section 26, ares only.) In STREAM (section 10), the
 64 KB read-ahead ring (`st_buf`) fills while the 68000 copies to the cart. The sectors after that are lost
 (`cd_pump`: "lost: start again when asked"), and the next chunk seeks again. ROMPAUSEON (0x08) when the ring is
 full and ROMPAUSEOFF (0x09) when there is room keep the drive in place (22a). Behind STREAM or a switch of its own.
@@ -1190,3 +1191,26 @@ it the tiles through the 32X COMM registers while the command runs.
   and the disc's Sub-CPU programs built `TILEP=1`), 230 s of play in ares (console timing): 5,667 tiles copied in,
   **0 tiles missing**, the picture's build step 8.3 ms (TILEP-1: 18.3 ms), the game at 72 % of its speed (TILEP-1:
   66 %). The graphics checked in screenshots.
+
+## 26. ROMPAUSE-1 (Metal Slug CD32X, 3 Nov 2026): the read-ahead pauses the drive (Sub-CPU `main.c`, switched)
+
+**Owner:** Metal Slug CD32X, at the owner's request (3 Nov 2026: section 22b's "pause the data read instead of losing
+it", "implement it anyway"). **No number:** it changes STREAM's read-ahead (section 10) inside commands 46 / 47.
+
+**Boot stack: behind a switch** (`ROMPAUSE ?= 0`, `#if OL_ROMPAUSE`, blocks `DX-ROMPAUSE` in `main.c` and the
+`Makefile`, out of the hash by `tools/check_boot.py`). Meaningful with `STREAM=1` only.
+
+- `cd_pump`: when the 64 KB ring (`st_buf`, 32 sectors) holds 24 or more sectors of a stream still running, the
+  drive is paused with its place kept: BIOS **ROMPAUSEON (0x08)** (state 0x2B, section 22a). The ring keeps
+  8 slots (`ST_PAUSE_ROOM`) for the sectors still on their way; the pump goes on taking them.
+- `cd_chunk_read` (the next chunk asked for): **ROMPAUSEOFF (0x09)**, the read goes on from its place (state 0x2A).
+- A new read (`scd_stream_start`: CDCSTOP + ROMREADN) and any other use of the drive (`scd_sub_read`,
+  `scd_open_file`, `scd_bios_call`: the CD audio, the PCM packs) drop the pause with the stream (`st_kill`), so a
+  paused data read never meets a music call. Every sector's header is checked as before: one that does not follow on
+  starts the read again, as without the switch.
+- **Status (3 Nov 2026): ares only, not on a console.** Metal Slug's EDCD (from the recorded game at the end of
+  Mission 2: Mission 2's 4 pages, then Mission 3's, from the disc), counters shown in COMM14 by a diagnostic build
+  (not kept): without the switch, 2 lost-sector restarts in Mission 2's load; with it, 4 pauses in that load and 7 by
+  Mission 3's end, nothing lost, the game the same. Both loads 42 s either way (at ares's 1-second log): the time
+  goes to the drive's speed (5.7 MB at 150 KB/s is 38 s) and a seek per file, not to lost sectors.
+
