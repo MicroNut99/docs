@@ -1259,3 +1259,16 @@ every stack: section 3's list, "100 and up"). No listener routine.
   within it, ~2 vblanks for the rest. The drive's own time is ~110 ms a chunk (8.2 sectors), so the unpacking
   is now the limit.
 
+## 28. CDVOL-1 (Metal Slug CD32X, 3 Nov 2026): the CD audio's volume (Sub-CPU `main.c`, switched)
+
+**Owner:** Metal Slug CD32X (the owner: "the audio is bad and needs some focus"). **No number:** a build value.
+
+- `CDVOL ?= 0` (`#if OL_CDVOL`, blocks `DX-CDVOL` in `main.c` and the `Makefile`, out of the hash by
+  `tools/check_boot.py`): with 1-0x3FF, command 45 sets the CD audio's volume with BIOS FDRSET (0x85) to that
+  value at each track's start instead of full (0x400). Section 22b's 82 (a volume / fade command) is not built.
+- **Why:** in ares the PCM effects came out ~10 dB under the CD music; in the arcade (FBNeo's renders) they are as
+  loud as it. Metal Slug: `CDVOL=0x200` (-6 dB) with its effects soft-limited (+3-7 dB, its `make_sfx.py`): the
+  attract's effects alone and the music in play then measure alike (ares, 50 ms windows, median ~1,200-1,300).
+- **Status (3 Nov 2026): ares only.** On a console the balance may differ (the CD's analogue mix): the value is a
+  build switch so it can be set again without code.
+
