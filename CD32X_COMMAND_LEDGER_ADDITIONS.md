@@ -1108,7 +1108,7 @@ table (up to 224 words), colours. The 32X frame buffer is the one memory both th
 
 | CMD | Name | COMM2 | COMM8L | Reply | 68000 routine |
 |---|---|---|---|---|---|
-| 79 | the Genesis VDP from the frame buffer | 0: run the list at frame buffer offset COMM8L (even, below `0x20000`); 1: the commit - run the part the last lists kept, then forget it | the list's offset (op 0) | COMM12 = 1 ok, 0 a bad list (an unknown header, or no room to keep: the rest is not run) | **39 `fb_list`** (new) |
+| 79 | the Genesis VDP from the frame buffer | 0: run the list at frame buffer offset COMM8L (even, below `0x20000`); 1: the commit - run the part the last lists kept, then forget it; 2 / 3: run the list as op 0, then show 32X frame buffer 0 / 1 and run the kept part at the vblank that shows it (added 3 Nov 2026, below) | the list's offset (ops 0, 2, 3) | COMM12 = 1 ok, 0 a bad list (an unknown header, or no room to keep: the rest is not run) | **39 `fb_list`** (new) |
 
 - **The SH2's side:** it writes the list into the frame buffer it draws in (the one not shown: the 68000 sees the same
   one at `0x840000` + the offset), **gives the frame buffer to the 68000** (`FM` = 0: the byte `0x00` to
@@ -1132,6 +1132,16 @@ table (up to 224 words), colours. The 32X frame buffer is the one memory both th
   gives the 68000 the frame buffer for it too (`FM` = 0) and takes it back after. It is for what must change at one vblank: the plane and H scroll table base registers of
   double-buffered maps and tables, V scroll, colours. The game sends its lists during the frame (into the Genesis
   areas not shown) and the commit right after its 32X swap is seen: one command, a few words, inside the vblank.
+- **Ops 2 / 3: the swap and the kept runs at one vblank** (added 3 Nov 2026 for the same request, DraculaX_32X
+  docs/66). The commit sent by the SH2 from its vblank interrupt started too late now and then: the Sub-CPU polls
+  COMM0 through the 68000, and in ares 1 picture in 25 had its top 1-33 lines with the old H scroll. Ops 2 / 3 run the
+  list as op 0, then the **68000 writes FBCTL's FS itself** (0 / 1: it holds the frame buffer, `FM` = 0; the 32X
+  swaps at the next vblank, at once in a blank) and reads it back: not swapped yet - the kept runs are **armed** and
+  `vblank_int` (the Genesis' level 6, line 224: the vblank the swap shows at) runs them first thing; swapped already
+  (the list ended in a blank) - the kept runs, and the pairs, at once. Op 1 then writes the pairs (the SH2 sends it
+  when it sees the swap). Armed runs still waiting when any command comes (`vblank_int` held off) are run first. The
+  SH2 must not swap itself after an op 2 / 3, and must send nothing else that touches the VDP before the swap is
+  shown (`vblank_int` interrupts the command loop).
 - **Level 4 masked** while it runs (VSPLIT's dispatcher: routine 39 is not in its unmasked list), so `hint_vs` never
   moves the VDP's address under it.
 - **Speed (ares):** 10 lists of 4,000 data words (VRAM) in 15 refreshes: **about 6.3 µs a word** during the display,
@@ -1146,6 +1156,8 @@ table (up to 224 words), colours. The 32X frame buffer is the one memory both th
 | DraculaX_32X `dxspeed` `FBVDP_TEST` | a list setting CRAM 0 red, the backdrop register and the display on: the Genesis backdrop red; then 10 lists of 4,000 words: every reply 1, 15 refreshes |
 
 | DraculaX_32X `dxspeed` `BG=1` (3 Nov 2026, docs/65) | the running game's background on plane A: each picture's list (op 0, not waited for: the game's code runs meanwhile) and the commit in the vblank after the swap with the `0x4nnn` pairs; stage 4's 600 pictures in ares, screenshots equal to the PC's pictures |
+
+| DraculaX_32X `dxspeed` `BG=1 SEC=2` (3 Nov 2026, docs/66) | ops 2 / 3 for each picture, op 1 for the pairs: stages 4, 2 and 5, 600 pictures each in ares, 303 screenshots (one every 7 frames) equal to the PC's pictures, top lines included; `hello` with `FBVDP=1` the same at frames 1800 and 2100 |
 
 **Open on the console:** the 68000 reading the frame buffer at this pace while the SH2 is off it; the `FM` hand-over
 between two commands of a frame.
