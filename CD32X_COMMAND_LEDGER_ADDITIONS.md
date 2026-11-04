@@ -99,6 +99,7 @@ move OpenJazz to MD 38-41 was not carried out: OpenJazz REV kept 37-40.
 | 38 | open file (length → COMM8L; 0 = not on the disc). The number also picks the cart slot for the next 46. **Paged builds of Hurrican and D32XR (`CART_PAGED`): bit 15 = the destination comes in COMM8L** (`cur_dest`, `& 0x3FFFFC`, used by 46 / 47 instead of the slot; D32XR wraps it in the 4 MB) |
 | 44 | clear the Genesis planes. **Always acknowledged** (`main.c` 31 Oct 2026 reading: COMM0 is cleared in every build); the clears themselves (MD 4 / 8) are compiled out while `SLIDESHOW_DEBUG` is 1, which it is in this stack - so 44 does nothing but answer |
 | 45 / 54 | play CD track (bit 15 = once, OpenLara OL-4; **Sonic's Kobo path has no bit 15: repeat only**) / stop music |
+| 81 | CD music pause (COMM2 = 1) / resume (0) in place: BIOS MSCPAUSEON / MSCPAUSEOFF. **Built 4 Nov 2026 behind `CDPAUSE=1`** (section 31; Metal Slug CD32X's CD player). No reply |
 | 46 | chunk → cart (bit 15 = no read-back); reply COMM12 = 0 ok / 1 bad. Switches: `FMVRING` bit 14 ring, reply \| 0x100 (section 12); `CARTW` word copy, MD 27 (section 13); `STREAM` read-ahead (section 10) |
 | 47 | chunk compare with the cart (`CMD_CART_TO_FB` also has the value 47 in `main.c`; its branch is never reached) |
 | 48 | pad (+ sound effect in the high byte, COMM2 = its volume); reply COMM8 pad, COMM10 ticks (pad 2 when built `PAD2=1`, section 23), in one 32-bit write. Answered before any other command |
@@ -969,7 +970,7 @@ Every proposal below uses calls the stack does not make.
 
 | CMD | Name | COMM2 | COMM8 / COMM8L | Reply | BIOS call | Why |
 |---|---|---|---|---|---|---|
-| 81 | CD music pause / resume | 1 pause, 0 resume | - | - | MSCPAUSEON 0x03 / MSCPAUSEOFF 0x04 | A pause menu keeps the song's place; today 54 stops it and 45 starts it from the top |
+| 81 | CD music pause / resume (**built: `CDPAUSE=1`, section 31, 4 Nov 2026 - ares only**) | 1 pause, 0 resume | - | - | MSCPAUSEON 0x03 / MSCPAUSEOFF 0x04 | A pause menu keeps the song's place; today 54 stops it and 45 starts it from the top |
 | 82 | CD music volume / fade | target 0-1024 (1024 = full) | COMM8 = slope; 0 = at once | - | FDRSET 0x85 / FDRCHG 0x86 | Fades at level ends, a music volume option, music lower under speech. **45 calls FDRSET 0x400 every time it starts a track**: send 82 after 45, or change 45 behind the same switch |
 | 83 | Cue a track | track; bit 15 = when started, play this track only (MSCSEEK1) | - | - | MSCSEEK 0x15 / MSCSEEK1 0x19 | The drive waits at the start of the track; 81 (resume) starts it with no seek, so a short jingle starts on time |
 | 84 | CD status and music position (**built: `traytest/`, ares only**) | 0 status, 1 position, 2 disc time | - | COMM2 0: COMM12 = the BIOS status word (0x0000 stopped, 0x0100 playing, 0x0300 scanning, 0x0500 paused, 0x1000 no disc, 0x2000 reading the disc, 0x4000 tray open; bit 15 = busy), COMM8L = the drive's status word << 16 \| first track << 8 \| last track. COMM2 1: COMM12 = current track (low byte), COMM8L = time in the track (BCD mm ss ff 00). COMM2 2: COMM12 = the drive lights, COMM8L = time on the disc. Added for the tray test T4 (2 Nov 2026), so one photo of a console that does not open is the whole record: COMM2 0x10-0x17: COMM8L = table bytes 4n-4n+3 (the whole table); and, with no CDBSTAT call, COMM2 3: COMM12 = $FF8000 (gate array: LEDs, chip version), COMM8L = the 68000's word at $A10000 (the Mega Drive's version, low byte); COMM2 4: COMM8L = the Sub-CPU BIOS's `_CDBIOS` jump target (0x5F24), COMM12 = its `_BURAM` jump target's low word (0x5F1A), which differ by BIOS version; COMM2 0x20-0x5F: COMM8L = the 68000's long at 0x100 + 4n (the BIOS ROM's header: name, date, version, region; ares 1.10: `BR 000003-1.10`); in a cartridge boot (`MODE1=1`, the tray test T5's `.32X` for the EverDrive PRO, 3 Nov 2026) at 0x400100 + 4n, where the Sega CD's ROM is then | CDBSTAT 0x81 (its table at 0x5E80 in the US BIOS 1.10 and 2.00W) | Carry the music on after a disc read (with 85), sync to the music, a CD player's time; after 90, see the tray open, close and the new disc read |
@@ -1344,4 +1345,18 @@ minutes with a one-slot pool (DraculaX docs/72).
 - 101 was free on every stack (the ledger's list; 92-98 stay with section 22's proposals).
 
 **Status: emulation** (ares, 3 Nov 2026): see DraculaX docs/72.
+
+## 31. CDPAUSE-1 (Metal Slug CD32X, 4 Nov 2026): command 81, the CD music paused in place (Sub-CPU `main.c`, switched)
+
+**Owner:** Metal Slug CD32X (its credits screen's CD player: Start pauses the track and plays it on from the same
+place, as Rayman CD32X's player does with the same command built in its own copy of the stack,
+`tools/stack_music.py`). Section 22b's proposal 81, built as proposed; 82 (volume / fade) is not.
+
+- `CDPAUSE ?= 0` (`#if OL_CDPAUSE`, blocks `DX-CDPAUSE` in `main.c` and the `Makefile`, out of the hash by
+  `tools/check_boot.py`). With 1, command 81: COMM2 = 1 pauses the CD music where it is (BIOS MSCPAUSEON 0x03), 0
+  plays on from there (MSCPAUSEOFF 0x04). Both are queued BIOS calls (section 22a): the drive is let finish what it
+  is doing first (`bios_wait_ready`, as 54). No reply; COMM0 cleared when the call is made.
+- A drive paused past the spin-down delay (60 s, CDBPAUSE) goes to standby; MSCPAUSEOFF then starts the kept play
+  again with a seek (22a). 45 after a pause starts a track from its top as always; 54 stops.
+- **Status (4 Nov 2026): ares only.** Not run on a console.
 
