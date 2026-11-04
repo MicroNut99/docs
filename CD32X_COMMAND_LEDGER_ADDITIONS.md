@@ -1217,6 +1217,8 @@ it the tiles through the 32X COMM registers while the command runs.
 - **4 Nov 2026 (v22's stack):** routine 40's two 128-byte copies 16 bytes a step (`movem.l` of four registers,
   unrolled) instead of a long at a time: ares, Metal Slug's recorded Mission 1 (1,000 vblanks), 0.505 -> 0.463 ms a
   tile as the SH2 waits (most of the rest is the handshake and the listener's latency, not the copies).
+  The second copy block had pushed a register on the 68000's stack with W on (MODE1-6: no other write while W is
+  on); it uses d7 now, no push (4 Nov 2026).
 
 ## 26. ROMPAUSE-1 (Metal Slug CD32X, 3 Nov 2026): the read-ahead pauses the drive (Sub-CPU `main.c`, switched)
 
