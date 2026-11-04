@@ -126,7 +126,7 @@ move OpenJazz to MD 38-41 was not carried out: OpenJazz REV kept 37-40.
 | **99** | **BootCamp stack, `TILEP=1`: a tile page's cache** - tiles copied from one window-1 page into the slots of another by listener routine 40 `tile_copy` (Metal Slug CD32X, section 25) |
 | **100** | **BootCamp stack, `ZCHUNK=1`: CMD 46 from an LZ4-packed file** - a chunk unpacked from its block (Metal Slug CD32X, section 27) |
 
-**Free on this stack (3 Nov 2026: 100 went to `ZCHUNK`, section 27; 99 went to `TILEP`, section 25; 79 went to `FBVDP`, section 24; 84 and 90 to `traytest/` on 2 Nov, section 22):** 39-43, 49, 55, **76, 77, 81-83, 85-89, 91-98, 101 and up** (78 went to `VSPLIT` on 31 Oct,
+**Free on this stack (3 Nov 2026: 100 went to `ZCHUNK`, section 27; 99 went to `TILEP`, section 25; 79 went to `FBVDP`, section 24; 84 and 90 to `traytest/` on 2 Nov, section 22):** 39-43, 49, 55, **76, 77, 81-83, 85-89, 92-98, 102 and up** (91 went to `CDRING`, section 29; 101 to `FBCART`, section 30) (78 went to `VSPLIT` on 31 Oct,
 section 21; 76 / 77 are the ones section 18 asks `sdcard/` to move to). Free on every stack (this one, Kobo,
 OpenTyrian): **76, 77, 81-83, 85-89, 91 and up.** The old line "69 and up" was behind the code by eight numbers
 (69-75: OpenJazz REV, SuperTux, Rayman, `sdcard/`); BootCamp docs/03 had it right (72-79, 81+) until
@@ -1316,4 +1316,30 @@ the game's `cd/` folder skips the slot-size check (command 91 never loads it who
 **Status: emulation** (ares, 3 Nov 2026): the DraculaX build `CDR=1 CDRING=1` on stage 4's window opens the track and
 runs the game with its drive; every chunk the game asked for arrived (the window reads none on stage 8, its PC log
 says). The game's speed with the drive is the DraculaX model's to improve (docs/69), not the command's.
+
+## 30. FBCART-1 (Dracula X CD32X, 3 Nov 2026): command 101, the 32X frame buffer into the cart (Sub-CPU `main.c`, switched)
+
+**Owner:** the BootCamp stack, for Dracula X CD32X ("you can edit and test the boot stack on your own", the owner, 3 Nov
+2026; DraculaX_32X docs/72).
+
+**Why:** the PC Engine's RAM (8 KB base, 64 KB CD RAM, 192 KB Super RAM) is more than the SH2 can keep writable in
+SDRAM beside its code. Its banks live in the cart, where the SH2 reads them; a bank the game writes is copied into a
+small SDRAM pool and, when its slot is needed again, written back to the cart. The SH2 cannot write the cart; the
+68000 can, and it can read the 32X frame buffer. Measured over the game's recordings: 60-175 banks written back in five
+minutes with a one-slot pool (DraculaX docs/72).
+
+**Switch:** `FBCART ?= 0` (`main.c` `OL_FBCART` through HWFLAGS). `build.sh` checks it reached `main.c`.
+`tools/check_boot.py` strips the `DX-FBCART` blocks into `stack/GENPLANE_BLOCKS.md5`.
+
+| CMD | Name | COMM2 | COMM8L | Reply |
+|---|---|---|---|---|
+| 101 | the 32X frame buffer into the cart | the frame buffer byte offset >> 4 | bits 0-23 the cart byte offset (even, the end below 0x3F0000); bits 24-27 the length in 2 KB - 1 (2-32 KB) | COMM12 = 0 ok, 1 refused |
+
+- The SH2 gives the 68000 the frame buffer (FM = 0) before the command and takes it back after, as for command 79.
+- The copy is the listener's `safe_cart_xfer_w` (MD 27: words, `RV` = 1, interrupts off), from 0x840000 + the offset to
+  0x400000 + the cart offset, 4 KB at a time.
+- Refused (nothing written): an odd cart offset, an end past the cart's save area or past the frame buffer's 128 KB.
+- 101 was free on every stack (the ledger's list; 92-98 stay with section 22's proposals).
+
+**Status: emulation** (ares, 3 Nov 2026): see DraculaX docs/72.
 
