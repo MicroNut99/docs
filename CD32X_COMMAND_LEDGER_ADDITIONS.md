@@ -1288,3 +1288,29 @@ every stack: section 3's list, "100 and up"). No listener routine.
 - **Status (3 Nov 2026): ares only.** On a console the balance may differ (the CD's analogue mix): the value is a
   build switch so it can be set again without code.
 
+## 29. CDRING-1 (Dracula X CD32X, 3 Nov 2026): command 91, sectors of the open file into the cart (Sub-CPU `main.c`, switched)
+
+**Owner:** the BootCamp stack, at the owner's request for Dracula X CD32X ("Yes: chunk ring, my size", 3 Nov 2026;
+DraculaX_32X docs/69).
+
+**Why:** the PC Engine's data track (20.8 MB) is read by the game while it runs, a few sectors at a time, anywhere in
+the track. Command 46 fills a file's fixed cart slot 32 KB by chunk number; `FMVRING`'s ring is 60 chunks (1.9 MB),
+more than the 4 MB cart has free beside the game.
+
+**Switch:** `CDRING ?= 0` (`main.c` `OL_CDRING` through HWFLAGS). `build.sh` checks it reached `main.c`; a `*.TRK` file in
+the game's `cd/` folder skips the slot-size check (command 91 never loads it whole). `tools/check_boot.py` strips the
+`DX-CDRING` blocks into `stack/GENPLANE_BLOCKS.md5`.
+
+| CMD | Name | COMM2 | COMM8L | Reply |
+|---|---|---|---|---|
+| 91 | sectors of the open file into the cart | the first sector in the file (CMD 38 opened it) | bits 0-23 the cart byte offset (2 KB aligned, the end below 0x3F0000); bits 24-27 the sectors - 1 (1-16) | COMM12 = 0 ok, 1 refused |
+
+- The read and the copy are command 46's: `STREAM`'s read-ahead (`cd_chunk_read`) or `scd_sub_read`, then `CARTW`'s
+  word copies (MD 27) or byte copies (MD 33), 4 KB at a time with `RV` = 1.
+- Past the file's end the count is cut; nothing past the cart's save area is written.
+- 91 was free (the ledger's list; 81-85 are left to section 22's proposals).
+
+**Status: emulation** (ares, 3 Nov 2026): the DraculaX build `CDR=1 CDRING=1` on stage 4's window opens the track and
+runs the game with its drive; every chunk the game asked for arrived (the window reads none on stage 8, its PC log
+says). The game's speed with the drive is the DraculaX model's to improve (docs/69), not the command's.
+
