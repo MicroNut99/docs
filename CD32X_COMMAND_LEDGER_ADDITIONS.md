@@ -904,6 +904,37 @@ next frame meanwhile).
 **Open on the console:** the same as §21. Also whether the console's interrupt latency in the unmasked
 routines matches ares.
 
+### 21b. VSPLIT-MODE1: the H interrupt in a cartridge (EDCD) boot (CD32X-BootCamp `1eaff00`, PR #1, 7 Nov 2026)
+
+**Found by:** Sapphire CD32X (its docs/05 §3), testing its HUD split on the EverDrive PRO boot in ares.
+**The owner:** "If you can fix the bug then document the fix and move on."
+
+**The fault:**
+- `set_vs_line` hooks the H interrupt by writing `hint_vs`'s low word to `$A12006`, the Mega-CD gate array's H-INT
+  redirect (§21). That only applies when the 68000 runs from the Sega CD's vectors, as in a CD boot.
+- In a cartridge boot (`MODE1`, `EDCD.32X`) the 68000's vectors are the cart's. Level 4 goes through the cart's
+  table to the RAM jump table at `$FFFD0C`, which the launcher fills with `jmp $FFFDAE`, an `rte`
+  (`edboot/edcd_md.s` step 2). `$A12006` redirects nothing there.
+- So command 78's split never ran on EDCD: the plane kept its top V scroll on every line.
+
+**The fix (`stack/subcpu/hw_md.s`, `set_vs_line`, inside the `DX-VSPLIT` block, under `.if OL_MODE1`):**
+- When the splits are turned on, `hint_vs`'s address is also written to the jump's target at `$FFFD0E`.
+- The dispatcher runs `set_vs_line` with level 4 masked, so no H interrupt meets the target half written.
+- A CD boot's listener (`OL_MODE1` = 0) assembles exactly as before. No new command, number or routine.
+- `stack/GENPLANE_BLOCKS.md5` updated (`check_boot.py --update-genplane`).
+
+**Status: emulation** (ares, `ARES_32X_TIMING=console`):
+
+| Test | Result |
+|---|---|
+| default build (`hello`) | `APP.BIN` and `CDLOADER.BIN` byte-identical to `63d1798`'s |
+| `GENPLANE=1 VSPLIT=1`, CD boot | `APP.BIN` byte-identical to `63d1798`'s |
+| Sapphire's stage 3 test frame (one split at line 203), `EDCD=1 GENPLANE=1 VSPLIT=1`, EverDrive board | before: 3,233 of 71,680 pixels off (the HUD's lines); after: **0**, at two frames, `4B10` |
+
+**Open on the console:** as §21 (where the H interrupt lands on the line), now for the EDCD boot too.
+This affects every game using VSPLIT on EDCD: Dracula X's stage 8 bands included. Documented in CD32X-BootCamp
+docs/03 (command 78) and docs/12.
+
 ## 22. PROPOSED (2 Nov 2026): commands from the Sega CD BIOS - all untested
 
 **Status of everything in this section: proposed, untested as of 2 Nov 2026.**
