@@ -1391,6 +1391,9 @@ place, as Rayman CD32X's player does with the same command built in its own copy
 - A drive paused past the spin-down delay (60 s, CDBPAUSE) goes to standby; MSCPAUSEOFF then starts the kept play
   again with a seek (22a). 45 after a pause starts a track from its top as always; 54 stops.
 - **Status (4 Nov 2026): ares only.** Not run on a console.
+- **Also in Jumping Flash CD32X** (8 Nov 2026, its copy of the BootCamp stack, `CDPAUSE=1`): the song is held while
+  its options menu is open. With its ground on (section 32, `JFGROUND=1`) command 81 is one of those that leave Word
+  RAM alone (a BIOS call only), under `#if OL_CDPAUSE`: its `JFGROUND=1` Sub-CPU program is as before without it.
 
 
 ## 32. JF-G (Jumping Flash CD32X, 7 Nov 2026): command 82 and listener routines 45-48, the ground on the graphics chip (switched)
