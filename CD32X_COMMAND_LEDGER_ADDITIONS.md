@@ -122,14 +122,15 @@ move OpenJazz to MD 38-41 was not carried out: OpenJazz REV kept 37-40.
 | **78** | **BootCamp stack, `VSPLIT=1` (needs `GENPLANE=1`): V scroll line split** - the planes' V scroll changed part-way down the screen by the Genesis H interrupt; double-buffered list (sections 21, 21a) |
 | **79** | **BootCamp stack, `FBVDP=1` (needs `GENPLANE=1 VSPLIT=1`): the Genesis VDP from a list in the 32X frame buffer** - map words, converted tiles, H scroll tables a running game makes; part kept for a commit after the 32X swap (section 24) |
 | **80** | Kobo path only (Sonic CD 2011): the stamp floor (section 6). Not on this stack, but keep it clear |
+| **82** | **Jumping Flash CD32X, `JFGROUND=1`: the ground on the graphics chip** (section 32; listener routines 45-48) |
 | **84** | **BootCamp `traytest/` (`TRAYTEST=1`, merged into a copy of the stack): CD status** - BIOS CDBSTAT's table, and (T4) the BIOS ROM's header and the version registers (section 22). Ares only (2 Nov 2026; T3 with no cart, and with the 4 / 16 MB carts and the EverDrive PRO in place) |
 | **90** | **BootCamp `traytest/` (`TRAYTEST=1`): the tray** - COMM2 1 open (DRVOPEN), 0 close and read the disc (DRVINIT) (section 22). Ares only (2 Nov 2026; T3 as 84) |
 | **99** | **BootCamp stack, `TILEP=1`: a tile page's cache** - tiles copied from one window-1 page into the slots of another by listener routine 40 `tile_copy` (Metal Slug CD32X, section 25) |
 | **100** | **BootCamp stack, `ZCHUNK=1`: CMD 46 from an LZ4-packed file** - a chunk unpacked from its block (Metal Slug CD32X, section 27) |
 
-**Free on this stack (3 Nov 2026: 100 went to `ZCHUNK`, section 27; 99 went to `TILEP`, section 25; 79 went to `FBVDP`, section 24; 84 and 90 to `traytest/` on 2 Nov, section 22):** 39-43, 49, 55, **76, 77, 81-83, 85-89, 92-98, 102 and up** (91 went to `CDRING`, section 29; 101 to `FBCART`, section 30) (78 went to `VSPLIT` on 31 Oct,
+**Free on this stack (3 Nov 2026: 100 went to `ZCHUNK`, section 27; 99 went to `TILEP`, section 25; 79 went to `FBVDP`, section 24; 84 and 90 to `traytest/` on 2 Nov, section 22):** 39-43, 49, 55, **76, 77, 81, 83, 85-89, 92-98, 102 and up** (91 went to `CDRING`, section 29; 101 to `FBCART`, section 30) (78 went to `VSPLIT` on 31 Oct,
 section 21; 76 / 77 are the ones section 18 asks `sdcard/` to move to). Free on every stack (this one, Kobo,
-OpenTyrian): **76, 77, 81-83, 85-89, 91 and up.** The old line "69 and up" was behind the code by eight numbers
+OpenTyrian): **76, 77, 81, 83, 85-89, 92-98, 102 and up** (82: Jumping Flash, section 32, 7 Nov 2026). The old line "69 and up" was behind the code by eight numbers
 (69-75: OpenJazz REV, SuperTux, Rayman, `sdcard/`); BootCamp docs/03 had it right (72-79, 81+) until
 Rayman and `sdcard/` took 72-75 on 26-27 Oct.
 
@@ -1391,3 +1392,35 @@ place, as Rayman CD32X's player does with the same command built in its own copy
   again with a seek (22a). 45 after a pause starts a track from its top as always; 54 stops.
 - **Status (4 Nov 2026): ares only.** Not run on a console.
 
+
+## 32. JF-G (Jumping Flash CD32X, 7 Nov 2026): command 82 and listener routines 45-48, the ground on the graphics chip (switched)
+
+MicroNut99/JumpingFlash_CD32X (the BootCamp stack), Makefile `JFGROUND=1` (`build.sh` passes it to the game, the
+Sub-CPU program and the listener). **`JFGROUND=0` (the default) builds `main.c` and `hw_md.s` as before** (all of
+it under `#if` / `.if`). The pattern is OpenJazz REV's bonus floor (command 71, section 19); Jumping Flash's camera
+turns, rises and looks up and down. (First numbered 72 / 36-39 in the working copy; 72 is Rayman's and 36-37
+SuperTux's, so it was renumbered before any release.)
+
+| CMD 82, COMM2 low 2 bits | What it does | Reply COMM12 |
+|---|---|---|
+| 1 LOAD | COMM8 = the ground data (`tools/jf_ground.py`: "JFG1", 16 colours, 4 stamps 32 x 32) as the 68000 reads the cart (0x400000 + offset). Word RAM to 2M; the 68000 copies the data in (MD 48) and sets the VDP up (MD 45) | 1; 0 = no data / a CD boot |
+| 2 FRAME | COMM2 bits 2-11 yaw, 12-15 height / 1024; COMM12 = pitch (10 bits) \| (height / 16 & 63) << 10; COMM8 = camera x / 8 << 16 \| z / 8. The chip draws up to 80 rows of 320 for the lines below the horizon; the 68000 shows them at the 32X's next swap (COMM6 = 0x4000 \| a bit that changes each picture) | 1; 0xFFFF = not loaded (another command took Word RAM: LOAD again) |
+| 3 OFF | back to 1M, the Genesis display off (MD 47) | 1 |
+
+- **Sent without waiting:** the SH2 writes command 82 FRAME and goes on; every other command (the pad first)
+  waits for COMM0 = 0 before it writes its arguments (`cdapi.c` `cd_idle`).
+- **Which commands end the ground** (they may need Word RAM in 1M): any but 0, 48 (answered first) and 82.
+- **Listener routines 45-48** (`jfground_md.s`, included by `hw_md.s` only when `JF_GROUND` = 1; 36-44
+  `cmd_nop` in that build; `MD_CMD_END` = 49). Free on every listener in section 2's table (OpenJazz REV's 45 is
+  `cmd_nop`): **45 `jg_setup`** (VDP, colours, the H interrupt, Word RAM to the Sub-CPU), **46 `jg_queue`** (a
+  picture is ready in Word RAM), **47 `jg_off`**, **48 `jg_copy`** (dst, src, len: the cart read through the 32X's
+  1 MB window at 0x900000 with **RV = 0** - with RV = 1 the SH2s read garbage from the cart and the master crashed
+  in its vblank handler, ares 7 Nov 2026; a cartridge boot only, a CD boot returns 0).
+- **The vblank** (`jg_vblank`, at the start of `vblank_int`): display off; at the SH2's swap the ready picture is
+  shown (plane A at 0xC000 or 0xE000, its line table); a new picture is copied by DMA into the other one, as many
+  columns as the display-off lines allow (more vblanks if needed), then Word RAM goes back to the Sub-CPU. **The H
+  interrupt** every line turns the display on at the horizon and sets plane A's V scroll per line.
+- **What it costs the SH2s:** the video DMA holds the Genesis bus, and the 32X reaches the cart over it: while it
+  runs the SH2s cannot read the cart. 104 rows took the FPGA build from 30 to 24 pictures a second; 80 rows keep 30
+  (ares, console timing).
+- Status: **emulation (ares)**, not yet on a console.
