@@ -1200,6 +1200,37 @@ table (up to 224 words), colours. The 32X frame buffer is the one memory both th
 between two commands of a frame.
 
 
+
+### 24b. VSSWAP: command 78's V splits switched at command 79's swap (Sapphire CD32X docs/26, 8 Nov 2026)
+
+**Asked for by:** Sapphire CD32X. **The owner:** chose this stack change by name ("1": commands 79 and 78), for a
+solid 30 pictures a second with the game in the cart's FPGA (Sapphire docs/25).
+
+**Why:**
+- Command 79 (§24) runs its list with level 4 masked, so a raster split due meanwhile lands late.
+- Command 78's list (§21) switched at the end of the picture it came in. With ops 2 / 3 the 32X's swap is at the
+  vblank after the list ends. So the SH2 had to send command 78 after the list had run, and wait for it.
+- With the picture and its list in step, three commands (the entries and the commit) cost a third of a refresh a
+  picture, and the wait after the list most of another.
+
+**The change** (build switch `VSSWAP`, default 0, needs `FBVDP=1`; `DX-VSSWAP` blocks in
+`stack/subcpu/hw_md.s`, `Makefile`, `build.sh`; `check_boot.py` knows the block;
+`stack/GENPLANE_BLOCKS.md5` updated):
+- `hint_vs` no longer switches a pending list at line 224.
+- `fb_vrun` (command 79's kept runs, at the vblank its swap is shown, or at once when it was shown already)
+  switches it, after the kept runs.
+- `fb_vrun` then sets the shown list's entry 0 from VSRAM 0 / 1, as the kept runs left them. `hint_vs` puts back
+  this picture's own top after its last split, so the SH2 sends command 78 only when the splits themselves
+  change, not for the top's V scroll.
+- No new command, number or routine. Without `VSSWAP` the stack assembles as before.
+
+**Status: emulation** (ares, `ARES_32X_TIMING=console`, Sapphire CD32X docs/26):
+
+| Test | Result |
+|---|---|
+| Sapphire's recorded FIFO played (stage 3, 600 frames), `VSSWAP=1` | the screenshots equal the PC's pictures (0-31 pixels); 263 pictures for 600 frames, from 242 |
+| The console | not yet run |
+
 ## 25. TILEP (Metal Slug CD32X, 3 Nov 2026): command 99 and listener routine 40, a tile page's cache (switched)
 
 **Owner:** Metal Slug CD32X (MicroNut99/FBNeo_MetalSlug), at the owner's request ("no level should be missing tiles",
