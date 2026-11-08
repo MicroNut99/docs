@@ -128,9 +128,9 @@ move OpenJazz to MD 38-41 was not carried out: OpenJazz REV kept 37-40.
 | **99** | **BootCamp stack, `TILEP=1`: a tile page's cache** - tiles copied from one window-1 page into the slots of another by listener routine 40 `tile_copy` (Metal Slug CD32X, section 25) |
 | **100** | **BootCamp stack, `ZCHUNK=1`: CMD 46 from an LZ4-packed file** - a chunk unpacked from its block (Metal Slug CD32X, section 27) |
 
-**Free on this stack (3 Nov 2026: 100 went to `ZCHUNK`, section 27; 99 went to `TILEP`, section 25; 79 went to `FBVDP`, section 24; 84 and 90 to `traytest/` on 2 Nov, section 22):** 39-43, 49, 55, **76, 77, 81, 83, 85-89, 92-98, 102 and up** (91 went to `CDRING`, section 29; 101 to `FBCART`, section 30) (78 went to `VSPLIT` on 31 Oct,
+**Free on this stack (3 Nov 2026: 100 went to `ZCHUNK`, section 27; 99 went to `TILEP`, section 25; 79 went to `FBVDP`, section 24; 84 and 90 to `traytest/` on 2 Nov, section 22):** 39-43, 49, 55, **76, 77, 83, 85-89, 92-98, 102 and up** (81 went to `CDPAUSE`, section 31; 91 went to `CDRING`, section 29; 101 to `FBCART`, section 30) (78 went to `VSPLIT` on 31 Oct,
 section 21; 76 / 77 are the ones section 18 asks `sdcard/` to move to). Free on every stack (this one, Kobo,
-OpenTyrian): **76, 77, 81, 83, 85-89, 92-98, 102 and up** (82: Jumping Flash, section 32, 7 Nov 2026). The old line "69 and up" was behind the code by eight numbers
+OpenTyrian): **76, 77, 83, 85-89, 92-98, 102 and up** (81: `CDPAUSE`, section 31; 82: Jumping Flash, section 32, 7 Nov 2026). The old line "69 and up" was behind the code by eight numbers
 (69-75: OpenJazz REV, SuperTux, Rayman, `sdcard/`); BootCamp docs/03 had it right (72-79, 81+) until
 Rayman and `sdcard/` took 72-75 on 26-27 Oct.
 
