@@ -1422,6 +1422,9 @@ SuperTux's, so it was renumbered before any release.)
   shown (plane A at 0xC000 or 0xE000, its line table); a new picture is copied by DMA into the other one, as many
   columns as the display-off lines allow (more vblanks if needed), then Word RAM goes back to the Sub-CPU. **The H
   interrupt** every line turns the display on at the horizon and sets plane A's V scroll per line.
+  A picture whose copy ends after the swap it was made for is shown at once (7 Nov 2026, 36a7a8e): before, when the
+  SH2 queued the next picture before its swap (a light stage, 1-3), each new picture replaced the finished one and
+  none was ever shown. No new number.
 - **What it costs the SH2s:** the video DMA holds the Genesis bus, and the 32X reaches the cart over it: while it
   runs the SH2s cannot read the cart. 104 rows took the FPGA build from 30 to 24 pictures a second; 80 rows keep 30
   (ares, console timing).
