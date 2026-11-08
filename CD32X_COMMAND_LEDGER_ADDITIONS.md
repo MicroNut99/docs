@@ -1409,7 +1409,9 @@ SuperTux's, so it was renumbered before any release.)
 
 - **Sent without waiting:** the SH2 writes command 82 FRAME and goes on; every other command (the pad first)
   waits for COMM0 = 0 before it writes its arguments (`cdapi.c` `cd_idle`).
-- **Which commands end the ground** (they may need Word RAM in 1M): any but 0, 48 (answered first) and 82.
+- **Which commands end the ground** (they may need Word RAM in 1M): any but 0, 45, 48 (answered first), 54 and 82.
+  45 / 54 (CD audio play / stop) were added on 7 Nov 2026 for JF-M (`JFMUSIC=1`: a song per stage as CD audio,
+  no new number) - they leave Word RAM alone, as on the Kobo stack's floor (section 6).
 - **Listener routines 45-48** (`jfground_md.s`, included by `hw_md.s` only when `JF_GROUND` = 1; 36-44
   `cmd_nop` in that build; `MD_CMD_END` = 49). Free on every listener in section 2's table (OpenJazz REV's 45 is
   `cmd_nop`): **45 `jg_setup`** (VDP, colours, the H interrupt, Word RAM to the Sub-CPU), **46 `jg_queue`** (a
