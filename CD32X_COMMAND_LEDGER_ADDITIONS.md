@@ -1473,7 +1473,7 @@ SuperTux's, so it was renumbered before any release.)
   (ares, console timing).
 - Status: **emulation (ares)**, not yet on a console.
 
-## 31. HWIN-1 (Dracula X CD32X, 8 Nov 2026): VSPLIT's H interrupt let into command 79's lists (listener `hw_md.s`, switched)
+## 33. HWIN-1 (Dracula X CD32X, 8 Nov 2026): VSPLIT's H interrupt let into command 79's lists (listener `hw_md.s`, switched)
 
 **Owner:** the BootCamp stack, at the owner's request for Dracula X CD32X ("The fix would be in the boot stack: DO IT",
 8 Nov 2026; DraculaX_32X docs/109-110). **No number:** a build switch on command 79's listener routine.
