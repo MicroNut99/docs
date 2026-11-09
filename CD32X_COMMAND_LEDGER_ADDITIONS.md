@@ -1231,6 +1231,15 @@ solid 30 pictures a second with the game in the cart's FPGA (Sapphire docs/25).
 | Sapphire's recorded FIFO played (stage 3, 600 frames), `VSSWAP=1` | the screenshots equal the PC's pictures (0-31 pixels); 263 pictures for 600 frames, from 242 |
 | The console | not yet run |
 
+**Addition (Sapphire CD32X docs/35, 8 Nov 2026; the owner: "yes" to the top line's V scroll):**
+- **What it does:** ops 2 / 3 now wait for the 32X's blank to end too (FBCTL bit 15, VBLK), after the Genesis's
+  (VDP status bit 3), before the FS write. Same `DX-VSSWAP` block switch, no new command or number.
+- **Why:** the 32X's blank can end after the Genesis's. An FS write still inside it swaps at once, the command
+  then runs the kept runs itself, and VSRAM's top came at line 0 or after.
+- **Effect (ares):** stage 3's FIFO, from frame 3,900 on.
+  - VSRAM 0 written at line 0: 22 times before, 0 after.
+  - The three screenshots with line 0 wrong (4109, 4155, 4316) are right.
+
 ## 25. TILEP (Metal Slug CD32X, 3 Nov 2026): command 99 and listener routine 40, a tile page's cache (switched)
 
 **Owner:** Metal Slug CD32X (MicroNut99/FBNeo_MetalSlug), at the owner's request ("no level should be missing tiles",
