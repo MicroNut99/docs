@@ -1463,3 +1463,28 @@ SuperTux's, so it was renumbered before any release.)
   runs the SH2s cannot read the cart. 104 rows took the FPGA build from 30 to 24 pictures a second; 80 rows keep 30
   (ares, console timing).
 - Status: **emulation (ares)**, not yet on a console.
+
+## 31. HWIN-1 (Dracula X CD32X, 8 Nov 2026): VSPLIT's H interrupt let into command 79's lists (listener `hw_md.s`, switched)
+
+**Owner:** the BootCamp stack, at the owner's request for Dracula X CD32X ("The fix would be in the boot stack: DO IT",
+8 Nov 2026; DraculaX_32X docs/109-110). **No number:** a build switch on command 79's listener routine.
+
+**Why:** `VSPLIT` changes the V scroll part-way down the screen from the Genesis H interrupt (level 4, every line). The
+dispatcher masks level 4 while a listener routine that touches the VDP runs (section 21, D5), so a split due while
+`fb_list` (MD 39, command 79) runs a long list is lost for that picture. Dracula X's attract mode has a split screen
+(a band from another part of the map) while its lists run long: the band showed the wrong part.
+
+**Switch:** `HWIN ?= 0` (`hw_md.s` `.ifdef DX_HWIN` through `ASFLAGS_GENPLANE`; needs `FBVDP=1`). `build.sh` checks it
+reached the assembler. `tools/check_boot.py` strips the `DX-HWIN` blocks into `stack/GENPLANE_BLOCKS.md5`.
+
+- Before each run of the list whose header is a control run (`0x1nnn`), `fb_list` lowers the mask to 3 and raises it
+  to 4 again: a pending H interrupt runs there. No VDP address is half-set then, and no data run's address is in use:
+  every data run follows a control run that sets its own address.
+- The list's maker must put any increment other than 2 in the same control run as the address it goes with:
+  `hint_vs` writes `0x8F02`. (DraculaX's `rt_bg2.c` does, for its 8-line H scroll tables.)
+- Only as the command's own call (the mask exactly 4): the kept runs played from the vertical blank's interrupt are
+  untouched.
+- A split due during a run lands after it: a run of tiles is a fraction of a line, a long data run (a 448-word H
+  scroll table) a few lines.
+
+**Status: emulation** (ares, 8 Nov 2026): see DraculaX docs/110.
