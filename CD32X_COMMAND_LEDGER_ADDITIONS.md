@@ -1496,10 +1496,8 @@ reached the assembler. `tools/check_boot.py` strips the `DX-HWIN` blocks into `s
 - A split due during a run lands after it: a run of tiles is a fraction of a line, a long data run (a 448-word H
   scroll table) a few lines.
 
-- **And the cartridge boot (MODE1, `EDCD=1`):** there the vectors are the cart's, not the Sega CD's, so the H interrupt
-  goes to the RAM jump table's entry at 0xFFFD0C (`jmp 0xFFFDAE`, an `rte`) and `$A12006` changes nothing. No split ever
-  ran in a cartridge boot. `set_vs_line` now also writes `hint_vs`'s address into that entry (0xFFFD0E) when
-  `OL_MODE1` (inside the `DX-VSPLIT` block: every `VSPLIT=1` cartridge boot gets it, with or without `HWIN`).
+- In a cartridge boot (`EDCD=1`) the splits run only with section 21b's vector fix (`hint_vs` through the RAM jump
+  table's entry at 0xFFFD0C), which the stack has had since 8 Nov.
 
 **Status: emulation** (ares, 8 Nov 2026): Dracula X's attract mode (the split screen: the portrait at the coach's
-window over the road) now draws as Mednafen's, from the EverDrive launcher. See DraculaX docs/110.
+window over the road) now draws as Mednafen's, from the EverDrive launcher (with section 21b and `VSSWAP`). See DraculaX docs/110.
