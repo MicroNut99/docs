@@ -79,7 +79,7 @@ routines 1-35) unless it is built with `GENPLANE=1`; then it has SuperTux's 36 /
 
 | Listener | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | `MD_CMD_END` |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| BootCamp `stack/subcpu/hw_md.s` | - (`GENPLANE=1`: `set_vsram`) | - (`GENPLANE=1`: `copy_vram_col`) | - (`VSPLIT=1`: `set_vs_line`, section 21) | - (`FBVDP=1`: `fb_list`, section 24) | - (`TILEP=1`: `tile_copy`, section 25; 36-39 `cmd_nop` when their switches are off) | - | - | - | - | - | 36 (`GENPLANE=1`: 38; `VSPLIT=1`: 39; `FBVDP=1`: 40; `TILEP=1`: 41) |
+| BootCamp `stack/subcpu/hw_md.s` | - (`GENPLANE=1`: `set_vsram`) | - (`GENPLANE=1`: `copy_vram_col`) | - (`VSPLIT=1`: `set_vs_line`, section 21) | - (`FBVDP=1`: `fb_list`, section 24) | - (`TILEP=1`: `tile_copy`, section 25; 36-39 `cmd_nop` when their switches are off) | - (`USBLOG=1`, needs `TILEP=1`: `usb_out`, section 34) | - | - | - | - | 36 (`GENPLANE=1`: 38; `VSPLIT=1`: 39; `FBVDP=1`: 40; `TILEP=1`: 41; `USBLOG=1`: 42) |
 | SuperTux REV | `set_vsram` | `copy_vram_col` | - | - | - | - | - | - | - | - | 38 |
 | D32XR CD32X | `set_scroll` (HUR genbg: plane A/B h- and v-scroll in one call) | - | - | - | - | - | - | - | - | - | 37 |
 | OpenJazz REV (`d486f58`) | `set_vsram` | `genbg_load` | `genbg_start` | `genbg_off` | `genbg_cell` | `rv_copy_fast` (R7: cart ↔ Word RAM, 48 bytes a `movem`, RV = 1) | `bmd_setup` | `bmd_queue` | `bmd_off` | `cmd_nop` (free) | 46 |
@@ -127,10 +127,11 @@ move OpenJazz to MD 38-41 was not carried out: OpenJazz REV kept 37-40.
 | **90** | **BootCamp `traytest/` (`TRAYTEST=1`): the tray** - COMM2 1 open (DRVOPEN), 0 close and read the disc (DRVINIT) (section 22). Ares only (2 Nov 2026; T3 as 84) |
 | **99** | **BootCamp stack, `TILEP=1`: a tile page's cache** - tiles copied from one window-1 page into the slots of another by listener routine 40 `tile_copy` (Metal Slug CD32X, section 25) |
 | **100** | **BootCamp stack, `ZCHUNK=1`: CMD 46 from an LZ4-packed file** - a chunk unpacked from its block (Metal Slug CD32X, section 27) |
+| **102** | **BootCamp stack, `USBLOG=1` (needs `TILEP=1`): a test build's log out of the Mega EverDrive PRO's USB port** - 12-byte records kept by the Sub-CPU, sent through the cart's FIFO by listener routine 41 `usb_out` with RV = 1 (Metal Slug CD32X, section 34) |
 
-**Free on this stack (3 Nov 2026: 100 went to `ZCHUNK`, section 27; 99 went to `TILEP`, section 25; 79 went to `FBVDP`, section 24; 84 and 90 to `traytest/` on 2 Nov, section 22):** 39-43, 49, 55, **76, 77, 83, 85-89, 92-98, 102 and up** (81 went to `CDPAUSE`, section 31; 91 went to `CDRING`, section 29; 101 to `FBCART`, section 30) (78 went to `VSPLIT` on 31 Oct,
+**Free on this stack (3 Nov 2026: 100 went to `ZCHUNK`, section 27; 99 went to `TILEP`, section 25; 79 went to `FBVDP`, section 24; 84 and 90 to `traytest/` on 2 Nov, section 22):** 39-43, 49, 55, **76, 77, 83, 85-89, 92-98, 103 and up** (102 went to `USBLOG`, section 34; 81 went to `CDPAUSE`, section 31; 91 went to `CDRING`, section 29; 101 to `FBCART`, section 30) (78 went to `VSPLIT` on 31 Oct,
 section 21; 76 / 77 are the ones section 18 asks `sdcard/` to move to). Free on every stack (this one, Kobo,
-OpenTyrian): **76, 77, 83, 85-89, 92-98, 102 and up** (81: `CDPAUSE`, section 31; 82: Jumping Flash, section 32, 7 Nov 2026). The old line "69 and up" was behind the code by eight numbers
+OpenTyrian): **76, 77, 83, 85-89, 92-98, 103 and up** (102: `USBLOG`, section 34; 81: `CDPAUSE`, section 31; 82: Jumping Flash, section 32, 7 Nov 2026). The old line "69 and up" was behind the code by eight numbers
 (69-75: OpenJazz REV, SuperTux, Rayman, `sdcard/`); BootCamp docs/03 had it right (72-79, 81+) until
 Rayman and `sdcard/` took 72-75 on 26-27 Oct.
 
@@ -1501,3 +1502,31 @@ reached the assembler. `tools/check_boot.py` strips the `DX-HWIN` blocks into `s
 
 **Status: emulation** (ares, 8 Nov 2026): Dracula X's attract mode (the split screen: the portrait at the coach's
 window over the road) now draws as Mednafen's, from the EverDrive launcher (with section 21b and `VSSWAP`). See DraculaX docs/110.
+
+## 34. USBLOG-1 (Metal Slug CD32X, 10 Nov 2026): command 102 and listener routine 41, a log out of the EverDrive PRO's USB port (switched)
+
+**Owner:** Metal Slug CD32X (the owner, 10 Nov 2026: "could you get better profiling data by using the USB port?" -
+"do it"): a test disc's numbers, a record every four pictures, saved on the PC instead of photographed off the screen.
+**Numbers:** command **102** (free on every stack, section 3: 101 went to `FBCART`); listener routine **41** (after
+`TILEP`'s 40, so `USBLOG=1` needs `TILEP=1`: the assembler stops otherwise; Jumping Flash's 45-48, section 32, are in
+its own copy).
+
+- `USBLOG ?= 0` (`#if OL_USBLOG` in `main.c`, `.ifdef DX_USBLOG` in `hw_md.s`; blocks `DX-USBLOG` in `main.c`, `hw_md.s`
+  and the `Makefile`, out of the hash by `tools/check_boot.py`). Without it the stack is byte for byte as before.
+- **102, COMM2 != 0: a record.** COMM2, 4, 6, 8, 10 and 14 = 12 bytes, high byte first. The Sub-CPU keeps it (16 at
+  most, more are dropped) and clears COMM0 once the six are read; no RV, the SH2s run on.
+- **102, COMM2 = 0: send what is kept.** The SH2 sends it as a command that sets RV (the slave parked, the master waiting
+  in SDRAM with its interrupts masked: Metal Slug's `cd_rv`), since with the 32X on the cart takes /TIME writes only
+  with RV = 1 (BootCamp docs/12, console 25 Oct 2026). The Sub-CPU puts krikzz's USB write in front (edio
+  `everdrive.c` `ed_cmd_usb_wr`: `'+'`, `~'+'`, `CMD_USB_WR 0x22`, `~0x22`, the length high byte first), the bytes into
+  Word RAM, and listener routine 41 `usb_out(src, n)` (1-256 bytes) copies them to its own buffer with RV = 0, then
+  writes them one by one to FIFODATA `0xA130D1` with RV = 1 and interrupts off. The FIFO is krikzz's `lib_base/base_io.sv`
+  (decoded for every mapper, a write with the low byte strobe); the cart's MCU passes the bytes to its USB virtual COM
+  port. No reply.
+- The PC side: Metal Slug's `tools/usblog/usblog.bat` (PowerShell, nothing to install) saves the port to a file,
+  `usblog_decode.py` reads it. ares (ares_android branch `neo68k-model`): `ARES_EDIO_USB=<file>` writes the bytes the MCU
+  would send.
+- Measured in ares (Mission 1's attract, the same inputs): 25.7 pictures a second against v49's 29.0 - the records, the
+  sends and the test's own second read of SCB3-4 together.
+- **Status (10 Nov 2026): ares only.** Not yet run on a console; whether the MCU takes the USB write while a CD32X game
+  runs under a custom core is what the first run shows.
