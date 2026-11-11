@@ -1530,3 +1530,51 @@ its own copy).
   sends and the test's own second read of SCB3-4 together.
 - **Status (10 Nov 2026): ares only.** Not yet run on a console; whether the MCU takes the USB write while a CD32X game
   runs under a custom core is what the first run shows.
+
+## 35. PACKED-1 (Dracula X CD32X, 11 Nov 2026): the game's ROM with a packed launcher (CDLOADER and EDCD, switched; no number)
+
+**Owner:** the BootCamp stack, at the owner's direction for Dracula X CD32X ("14 MB EDCD is the way"; "it is a change to
+the launcher and should be written into the ledger as one"). **No command number, no listener routine, nothing in the
+Sub-CPU program.** DraculaX_32X docs/170-171.
+
+**Why:** a packed launcher (Evolution3, `edboot/pack_edcd.py`: the EverDrive's menu loads the whole `.32X`, up to
+14 MB, into its banks) already brings a game's data. The program still came from the disc: bank 0 is the launcher, and
+CDLOADER copies `GAME.32X` (file 20) over it at every start, so every program fix was a new disc.
+
+**Switches** (both off by default; with them off CDLOADER's code and EDCD's 68000 part are byte-identical to before -
+checked by building both ways, 11 Nov 2026):
+- `PACKED ?= 0` (`stack/sh2/Makefile.cdloader`, `-DCDL_PACKED`; blocks `DX-PACKED`, out of the hash by
+  `tools/check_boot.py`). `build.sh PACKED=1` stops unless the switch reached `cdloader_sh2.c`'s compile line.
+- `EDCD_PACKED=1` (`edboot/build_edcd.sh`, `--defsym ED_PACKED=1`), with `EDCD_W0=<bank>`.
+
+**What they do:**
+- **EDCD (`edcd_md.s`, `w0_move`):** with `EDCD_W0=<bank>` the launcher makes that bank window 0 at its hand-over and
+  copied its own 0x100-0x7FF there first. With `ED_PACKED`, a launcher whose header has `EDPK` at 0x1E0 leaves the bank
+  as the SD card loaded it; one without it copies as before and clears the long at the bank's + 0x7FFF0.
+- **CDLOADER (`cdloader_sh2.c`):** `EDPK` at cart 0x7FFF0 (window 0's bank) and prep_rom's `CDB2` at 0x3BC: status
+  `4D08`, file 20 is not opened, nothing is copied; the header check and the hand-over as always. Otherwise as before.
+- **The file:** the launcher in bank 0 with `EDPK` at 0x1E0, the prepped ROM (`prep_rom.py --mode1`: its 68000 jump
+  table is already the launcher's) at `<bank>` x 0x80000, `EDPK` + its length at the bank's + 0x7FFF0
+  (DraculaX_32X `tools/pack_game.py`).
+
+**Also mended:** `edcd_md.s` had `#ED_CTRL0|0x2000` - `|` starts a comment in this assembler, so the line never
+assembled: **`EDCD_W0` had not built since it was written** (no launcher in the family used it). It is `+` now. The
+default build (`EDCD_W0` unset) never assembled that block and is unchanged.
+
+**Picking the bank (a game with a core in the EverDrive):** Dracula X's core finds its two windows by the bank number
+windows 6 and 7 show, and takes the EverDrive's second memory chip (banks 16-30) for itself once its engine runs. So its
+program's bank is one that windows 6-7 never show in any page (not 4p + 2 or 4p + 3) and below 16: bank 9.
+
+**Dracula X's data in the same file (no stack change: commands 68 and 101 as they are):** the System Card in bank 16
+and `DXFWTAB.BIN` at cart 0x080000, where its own 38 + 46 put them (Evolution3's rule), and the PC Engine data
+track's sectors, each different one once (5,275 of 10,149 are different), in 2 KB slots: cart 0x082000-0x13FFFF,
+0x1C0000-0x1FFFFF and the program's bank from + 0x46000, and windows 4-5 of pages 1-3. A table behind the program
+(cart 0x040000: `DXPK`, then a word a track sector) says where each is; a sector not in the cart comes from the disc
+through command 91 as before. 1,903 slots hold 53.8 % of the track's sectors. Not more without a change: windows 6-7
+of every page are the core's (six of chip 0's banks are never seen), and chip 1 is the engine's.
+
+**Status (11 Nov 2026): ares only.** The owner's ares_android, console timing: a disc with `GAME.32X` and the whole
+data track wiped, the packed launcher - the System Card, Start, the game's opening drawn the same as from the full
+disc, with a page switch (68) before nearly every sector in a test layout. **Not yet on a console:** window 0 on
+another bank is edtest-proven there; this launcher's use of it, and command 68 sent while the core's engine runs, are
+not. (ares let pages 4-6 be read while the engine ran until this day; its board now answers as the core does.)
