@@ -128,10 +128,11 @@ move OpenJazz to MD 38-41 was not carried out: OpenJazz REV kept 37-40.
 | **99** | **BootCamp stack, `TILEP=1`: a tile page's cache** - tiles copied from one window-1 page into the slots of another by listener routine 40 `tile_copy` (Metal Slug CD32X, section 25) |
 | **100** | **BootCamp stack, `ZCHUNK=1`: CMD 46 from an LZ4-packed file** - a chunk unpacked from its block (Metal Slug CD32X, section 27) |
 | **102** | **BootCamp stack, `USBLOG=1` (needs `TILEP=1`): a test build's log out of the Mega EverDrive PRO's USB port** - 12-byte records kept by the Sub-CPU, sent through the cart's FIFO by listener routine 41 `usb_out` with RV = 1 (Metal Slug CD32X, section 34) |
+| **103** | **BootCamp stack, `TPSG=1`: the PC Engine's PSG played by the PCM chip** - COMM2 = 1 on (COMM8L = the 68000 address of the cart core's PSG write ring) / 0 off; reply COMM12 = 1; the Sub-CPU then reads the ring every pass through `READ_32X_32` and drives PCM channels 0-5 (Sapphire CD32X, section 36) |
 
-**Free on this stack (3 Nov 2026: 100 went to `ZCHUNK`, section 27; 99 went to `TILEP`, section 25; 79 went to `FBVDP`, section 24; 84 and 90 to `traytest/` on 2 Nov, section 22):** 39-43, 49, 55, **76, 77, 83, 85-89, 92-98, 103 and up** (102 went to `USBLOG`, section 34; 81 went to `CDPAUSE`, section 31; 91 went to `CDRING`, section 29; 101 to `FBCART`, section 30) (78 went to `VSPLIT` on 31 Oct,
+**Free on this stack (3 Nov 2026: 100 went to `ZCHUNK`, section 27; 99 went to `TILEP`, section 25; 79 went to `FBVDP`, section 24; 84 and 90 to `traytest/` on 2 Nov, section 22):** 39-43, 49, 55, **76, 77, 83, 85-89, 92-98, 104 and up** (103 went to `TPSG`, section 36, 12 Nov; 102 went to `USBLOG`, section 34; 81 went to `CDPAUSE`, section 31; 91 went to `CDRING`, section 29; 101 to `FBCART`, section 30) (78 went to `VSPLIT` on 31 Oct,
 section 21; 76 / 77 are the ones section 18 asks `sdcard/` to move to). Free on every stack (this one, Kobo,
-OpenTyrian): **76, 77, 83, 85-89, 92-98, 103 and up** (102: `USBLOG`, section 34; 81: `CDPAUSE`, section 31; 82: Jumping Flash, section 32, 7 Nov 2026). The old line "69 and up" was behind the code by eight numbers
+OpenTyrian): **76, 77, 83, 85-89, 92-98, 104 and up** (103: `TPSG`, section 36; 102: `USBLOG`, section 34; 81: `CDPAUSE`, section 31; 82: Jumping Flash, section 32, 7 Nov 2026). The old line "69 and up" was behind the code by eight numbers
 (69-75: OpenJazz REV, SuperTux, Rayman, `sdcard/`); BootCamp docs/03 had it right (72-79, 81+) until
 Rayman and `sdcard/` took 72-75 on 26-27 Oct.
 
@@ -1615,8 +1616,8 @@ engine in the real core (Quartus has not built it), and that `memrd 0x3EF000` is
 ## 36. TPSG-1 (Sapphire CD32X, 12 Nov 2026): command 103, the PC Engine's PSG played by the PCM chip (Sub-CPU `main.c`, switched)
 
 **Owner:** the BootCamp stack, for Sapphire CD32X at the owner's direction ("The game is a fail without sound effects ...
-The Sound effects. #1 priority whatever it takes. USE THE WHOLE ENTIRE TOWER OF POWER"). **A branch (`tpsg`) until the
-owner takes it:** the stack's main is unchanged. Sapphire_CD32X docs/54. Dracula X and Gate of Thunder lack the same
+The Sound effects. #1 priority whatever it takes. USE THE WHOLE ENTIRE TOWER OF POWER"; and of this command, shown
+to him on a branch: "Go on the new cmd", 12 Nov 2026). Sapphire_CD32X docs/54. Dracula X and Gate of Thunder lack the same
 sound effects on the console (their FPGA has no room for a PSG): this is for all three.
 
 **Why:** a PC Engine CD game's sound effects are the HuC6280's PSG: six wavetable channels (a 32-step waveform, a
@@ -1656,4 +1657,4 @@ applied at its time, 0.94 with two updates a frame. In ares (ares_android, conso
 and the PCM chip sounds. **Not on a console.** Not proven there: the chip's loop (whether the end mark's sample also
 steps), wave RAM writes while channels sound, how many ring reads a frame the Sub-CPU's loop makes.
 
-**Numbers:** 103 (free on every stack: 102 went to `USBLOG`; 83-89 and 92-98 stay with section 22's proposals).
+**Numbers:** 103 (free on every stack: 102 went to `USBLOG`; 83-89 and 92-98 stay with section 22's proposals). No listener routine, nothing new in `hw_md.s`.
