@@ -1606,8 +1606,8 @@ M1PAGE=1 FBCART=1` as before, and commands 68 and 101 as they are.
 3. **A byte of 0x00 written to the 32X frame buffer is not written** (the hardware manual's rule); a block built there
    for command 101 is cleared by words first.
 
-**Status (11 Nov 2026): ares only** (ares_android, console timing). From power-on: the title, RUN, into stage 1 with
-no sector failing its sum. The stage 1 to 2 window (1,700 game frames from a state, two combination loads, 710 sectors
+**Status (11 Nov 2026): ares only** (ares_android, console timing). From power-on: the hand-over and the game's
+first loads from the pack (64 sectors, none failing its sum); not run further. The stage 1 to 2 window (1,700 game frames from a state, two combination loads, 710 sectors
 from the pack, 1,288 page switches): the end hash without the stack page is `b2fc64ab`, the same as the PC's and as
 the build that read the disc. **Not on a console.** Not proven there: this layout, command 68 at this rate, the armed
 engine in the real core (Quartus has not built it), and that `memrd 0x3EF000` is the log's address.
