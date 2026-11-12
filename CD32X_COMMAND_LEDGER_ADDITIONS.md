@@ -1645,6 +1645,9 @@ up to 32 new writes (a long = two), and when it has them all gives the chip what
   (a table for all 4,096 periods: within 3 cents down to 112 Hz, 15 at worst below);
 - noise: 16 KB of the PSG's own shift register's bits, the noise frequency as FD;
 - the volumes: the PSG's main balance + channel balance + volume (1.5 dB steps) as ENV and the two PAN nibbles.
+**The reader also runs while the drive is waited for** (`bios_wait_ready`'s loop, in the `DX-TPSG` block there): a
+music start holds the Sub-CPU's loop for the drive's seek (about 1 s in ares), and without this every sound effect in
+that second was skipped (found 12 Nov in ares: the chip silent for 0.5 s stretches while the PSG played).
 PCM channels 0-5 are the PSG's; 6 and 7 are free. **Not together with command 48's effects or command 53** (the same
 wave RAM and channels). DDA (a sample written by the CPU) and the PSG's frequency modulation are not played.
 
