@@ -129,10 +129,11 @@ move OpenJazz to MD 38-41 was not carried out: OpenJazz REV kept 37-40.
 | **100** | **BootCamp stack, `ZCHUNK=1`: CMD 46 from an LZ4-packed file** - a chunk unpacked from its block (Metal Slug CD32X, section 27) |
 | **102** | **BootCamp stack, `USBLOG=1` (needs `TILEP=1`): a test build's log out of the Mega EverDrive PRO's USB port** - 12-byte records kept by the Sub-CPU, sent through the cart's FIFO by listener routine 41 `usb_out` with RV = 1 (Metal Slug CD32X, section 34) |
 | **103** | **BootCamp stack, `TPSG=1`: the PC Engine's PSG played by the PCM chip** - COMM2 = 1 on (COMM8L = the 68000 address of the cart core's PSG write ring) / 0 off; reply COMM12 = 1; the Sub-CPU then reads the ring every pass through `READ_32X_32` and drives PCM channels 0-5 (Sapphire CD32X, section 36) |
+| **104** | **BootCamp stack, `CDFADE=1`: the CD music's volume set or faded** - COMM2 = the volume to go to, 0-0x400 (full); COMM8 = the slope, 0 = at once (BIOS FDRSET), else a step at each of the BIOS's drive interrupts, 75 a second (FDRCHG); no reply (Dracula X CD32X, section 38) |
 
-**Free on this stack (3 Nov 2026: 100 went to `ZCHUNK`, section 27; 99 went to `TILEP`, section 25; 79 went to `FBVDP`, section 24; 84 and 90 to `traytest/` on 2 Nov, section 22):** 39-43, 49, 55, **76, 77, 83, 85-89, 92-98, 104 and up** (103 went to `TPSG`, section 36, 12 Nov; 102 went to `USBLOG`, section 34; 81 went to `CDPAUSE`, section 31; 91 went to `CDRING`, section 29; 101 to `FBCART`, section 30) (78 went to `VSPLIT` on 31 Oct,
+**Free on this stack (3 Nov 2026: 100 went to `ZCHUNK`, section 27; 99 went to `TILEP`, section 25; 79 went to `FBVDP`, section 24; 84 and 90 to `traytest/` on 2 Nov, section 22):** 39-43, 49, 55, **76, 77, 83, 85-89, 92-98, 105 and up** (104 went to `CDFADE`, section 38, 12 Nov; 103 went to `TPSG`, section 36, 12 Nov; 102 went to `USBLOG`, section 34; 81 went to `CDPAUSE`, section 31; 91 went to `CDRING`, section 29; 101 to `FBCART`, section 30) (78 went to `VSPLIT` on 31 Oct,
 section 21; 76 / 77 are the ones section 18 asks `sdcard/` to move to). Free on every stack (this one, Kobo,
-OpenTyrian): **76, 77, 83, 85-89, 92-98, 104 and up** (103: `TPSG`, section 36; 102: `USBLOG`, section 34; 81: `CDPAUSE`, section 31; 82: Jumping Flash, section 32, 7 Nov 2026). The old line "69 and up" was behind the code by eight numbers
+OpenTyrian): **76, 77, 83, 85-89, 92-98, 105 and up** (104: `CDFADE`, section 38; 103: `TPSG`, section 36; 102: `USBLOG`, section 34; 81: `CDPAUSE`, section 31; 82: Jumping Flash, section 32, 7 Nov 2026). The old line "69 and up" was behind the code by eight numbers
 (69-75: OpenJazz REV, SuperTux, Rayman, `sdcard/`); BootCamp docs/03 had it right (72-79, 81+) until
 Rayman and `sdcard/` took 72-75 on 26-27 Oct.
 
@@ -1005,7 +1006,7 @@ Every proposal below uses calls the stack does not make.
 | CMD | Name | COMM2 | COMM8 / COMM8L | Reply | BIOS call | Why |
 |---|---|---|---|---|---|---|
 | 81 | CD music pause / resume (**built: `CDPAUSE=1`, section 31, 4 Nov 2026 - ares only**) | 1 pause, 0 resume | - | - | MSCPAUSEON 0x03 / MSCPAUSEOFF 0x04 | A pause menu keeps the song's place; today 54 stops it and 45 starts it from the top |
-| 82 | CD music volume / fade | target 0-1024 (1024 = full) | COMM8 = slope; 0 = at once | - | FDRSET 0x85 / FDRCHG 0x86 | Fades at level ends, a music volume option, music lower under speech. **45 calls FDRSET 0x400 every time it starts a track**: send 82 after 45, or change 45 behind the same switch |
+| 82 → **104** | CD music volume / fade (**built: `CDFADE=1`, section 38, 12 Nov 2026 - ares only; its number 82 had gone to Jumping Flash, section 32, so it is 104**) | target 0-1024 (1024 = full) | COMM8 = slope; 0 = at once | - | FDRSET 0x85 / FDRCHG 0x86 | Fades at level ends, a music volume option, music lower under speech. **45 calls FDRSET 0x400 every time it starts a track**: send 82 after 45, or change 45 behind the same switch |
 | 83 | Cue a track | track; bit 15 = when started, play this track only (MSCSEEK1) | - | - | MSCSEEK 0x15 / MSCSEEK1 0x19 | The drive waits at the start of the track; 81 (resume) starts it with no seek, so a short jingle starts on time |
 | 84 | CD status and music position (**built: `traytest/`, ares only**) | 0 status, 1 position, 2 disc time | - | COMM2 0: COMM12 = the BIOS status word (0x0000 stopped, 0x0100 playing, 0x0300 scanning, 0x0500 paused, 0x1000 no disc, 0x2000 reading the disc, 0x4000 tray open; bit 15 = busy), COMM8L = the drive's status word << 16 \| first track << 8 \| last track. COMM2 1: COMM12 = current track (low byte), COMM8L = time in the track (BCD mm ss ff 00). COMM2 2: COMM12 = the drive lights, COMM8L = time on the disc. Added for the tray test T4 (2 Nov 2026), so one photo of a console that does not open is the whole record: COMM2 0x10-0x17: COMM8L = table bytes 4n-4n+3 (the whole table); and, with no CDBSTAT call, COMM2 3: COMM12 = $FF8000 (gate array: LEDs, chip version), COMM8L = the 68000's word at $A10000 (the Mega Drive's version, low byte); COMM2 4: COMM8L = the Sub-CPU BIOS's `_CDBIOS` jump target (0x5F24), COMM12 = its `_BURAM` jump target's low word (0x5F1A), which differ by BIOS version; COMM2 0x20-0x5F: COMM8L = the 68000's long at 0x100 + 4n (the BIOS ROM's header: name, date, version, region; ares 1.10: `BR 000003-1.10`); in a cartridge boot (`MODE1=1`, the tray test T5's `.32X` for the EverDrive PRO, 3 Nov 2026) at 0x400100 + 4n, where the Sega CD's ROM is then | CDBSTAT 0x81 (its table at 0x5E80 in the US BIOS 1.10 and 2.00W) | Carry the music on after a disc read (with 85), sync to the music, a CD player's time; after 90, see the tray open, close and the new disc read |
 | 85 | Play from a time / seek to a time | 0 play, 1 seek and hold | COMM8L = disc time (BCD mm:ss:ff:00) | - | MSCPLAYT 0x14 / MSCSEEKT 0x16 | With 84, a song goes on where it stopped. MSCPLAYT plays on into the next tracks (the 0x25 play): the game stops it at the track's end |
@@ -1715,3 +1716,58 @@ Not yet run on the console.
 COMM4 and COMM6 only. Dracula X's own PSG sound (12 Nov 2026, DraculaX_32X docs/185) is on the 32X's PWM, mixed by the
 secondary SH2 from the core's copy of the PSG's registers: no command, no stack change; its core has no write ring
 for command 103 yet.
+
+## 38. CDFADE-1 (Dracula X CD32X, 12 Nov 2026): command 104, the CD music's volume set or faded (Sub-CPU `main.c`, switched)
+
+**Owner:** the BootCamp stack, at the owner's word for Dracula X CD32X ("The CD music fade-out ... Add it", 12 Nov
+2026; DraculaX_32X docs/193). It is section 22b's proposal for a volume / fade command, built as proposed. **Its
+number there, 82, went to Jumping Flash on 7 Nov (section 32): it is 104**, the first number free on every stack that
+no proposal holds.
+
+**Why:** a PC Engine CD game fades its CD music with the CD unit's fader ($180F). Dracula X asks for the CD audio to
+die away in 2.5 s between 2 and 15 times in each of its thirteen recorded routes, then for full volume again. The
+Sega CD's volume is the Sub-CPU's (the BIOS's fader calls): the stack set it once at each track's start (command
+45, `cdda_start`) and nothing could move it while a track played, so the music was cut where the game faded it.
+`TPSG=1`'s command 103 has a volume use (COMM2 low byte 3, section 36), but it sets a level at once, for a menu, and
+comes only with the PSG player; a fade is the BIOS's own ramp, one command.
+
+| CMD | Name | COMM2 | COMM8 (16 bit) | Reply | 68000 routine | Stack |
+|---|---|---|---|---|---|---|
+| **104** | the CD music's volume / fade | the volume to go to: 0-0x400 (0x400 = full; more is taken as 0x400) | the slope: 0 = at once (BIOS FDRSET 0x85); else the volume moves that much towards the target at each of the BIOS's drive interrupts (FDRCHG 0x86, D1 = target << 16 \| slope; more than 0x400 is taken as 0x400) | none (COMM0 cleared when the call is made) | none new: `READ_32X_16` | OpenLara path (BootCamp), `CDFADE=1` |
+
+- **Switch:** `CDFADE ?= 0` (`stack/subcpu/Makefile`, `HWFLAGS += -DOL_CDFADE`; blocks `DX-CDFADE` in `main.c` and
+  the `Makefile`, out of the hash by `tools/check_boot.py`, fingerprinted in `stack/GENPLANE_BLOCKS.md5`).
+  `build.sh CDFADE=1` stops unless the switch reached `main.c`'s compile line. No listener change, nothing in
+  `hw_md.s`, the boot block or CDLOADER.
+- **Both calls run at once** (0x80 and up: not queued, section 22a), so the drive is not waited for
+  (`bios_wait_ready` is not called): a fade starts when it is asked, also while a track is being started.
+- **The slope's clock is the drive's, 75 a second - not the vertical blank's 60.** Measured in ares (the BIOS's own
+  code runs there): a slope of 7 from full took 1.94 s (146 steps), a slope of 5 took 2.7 s (205 steps). So a fade
+  from full to nothing in t seconds is a slope of 1024 / (75 t): 2.5 s is 5, 6 s is 2. Section 22a's "one slope step
+  per BIOS interrupt" meant this interrupt.
+- **Command 45 is unchanged:** it still sets the volume full (or `CDVOL`'s value, and after it TPSG-3's) at each
+  track's start. A game that has faded the music to nothing and plays the next track gets it at full without
+  sending anything; one that wants a track to begin quiet sends 104 after 45. A fade never leaves the next track
+  silent.
+- **The game's side (Dracula X, `eng.c eng_fade`, `-DDX_CDFADE`):** the master SH2 follows the game's writes to
+  $180F in its core's log (the core's step 61 and up) and sends 104 when what the game wants is not what was sent
+  last: bit 3 set and bit 1 clear - COMM2 = 0, COMM8 = 5 (bit 2: 2.5 s) or 2 (6 s); bit 3 clear - COMM2 = 0x400,
+  COMM8 = 0. A 104 that is not answered (a launcher whose stack lacks it) is not sent again.
+
+**Status: emulation** (ares, the owner's ares_android, console timing, 12 Nov 2026; Dracula X v36 from its packed
+EverDrive launcher, the st1 route):
+
+| Check | Result |
+|---|---|
+| `CDFADE=0` (the default) | `APP.BIN`, `CDLOADER.BIN`, the launcher's `EDCD.32X` and `crt.bin` byte-identical to the build before; `check_boot.py` "unchanged (21 files)" |
+| `CDFADE=1`, the route's first fade (a track started at the game's frame 879, its fader written 0x0C at 902, 0x00 with the next track at 1228) | both 104s answered. The CD audio alone (the recording's left minus right: the 32X's PWM is the same in both) against the same run without the command: a straight fall, half at 1.3 s, a quarter at 2.0 s, nothing from 2.7 s on; the next track the same as without, sample for sample |
+| the second fade (0x0C at frame 11,465; the game itself stops the track 1.2 s later) | the CD audio lower all through its last second, as the fade has it |
+| the game | the engine's frames equal to the run without the command (12,367 of them to the stage's start) |
+
+**Open on the console:** all of it. In particular the drive's 75 a second as the slope's clock on a real unit, and
+how the fader's own chip follows a level set at once (ares moves it a step a sample, 0.37 s for the whole range: a
+track started right after a fade came up over half a second in ares, where a real drive's seek comes first).
+
+**Numbers:** 104 (free on every stack until now; 83, 85-89 and 92-98 stay with section 22's proposals; 76 / 77 with
+`sdcard/`'s move). No listener routine.
+
