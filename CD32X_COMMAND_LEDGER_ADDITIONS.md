@@ -1627,7 +1627,7 @@ PSG channel maps onto a PCM channel one for one, and the Sub-CPU is idle while a
 
 | CMD | Name | COMM2 | COMM8 | Reply | 68000 routine | Stack |
 |---|---|---|---|---|---|---|
-| **103** | PSG ring on / off | 1 on, 0 off | on: COMM8L = the ring's 68000 address (even) | COMM12 = 1 | none new: `READ_32X_32` / `READ_32X_16` as they are | OpenLara path (BootCamp), `TPSG=1` |
+| **103** | PSG ring on / off | 1 on, 0 off | on: COMM8L = the ring's 68000 address (even) | COMM12 = 1 | none new: `READ_32X_32` and routine 25 `copy_words` as they are | OpenLara path (BootCamp), `TPSG=1` |
 
 **Switch:** `TPSG ?= 0` (`stack/subcpu/Makefile`, `HWFLAGS += -DOL_TPSG`; blocks `DX-TPSG`, out of the hash by
 `tools/check_boot.py`). The player is the kit's `tpsg/` folder (`tpsg.c`, `tpsg.h`, `tpsg_tab.h`; `TPSG_DIR` for a
@@ -1638,8 +1638,12 @@ build that runs from a copy of `stack/`). With the switch off the Sub-CPU progra
 n & 1023, each `register << 8 | value` (registers 0-9 of `$0800`). Sapphire: cart 0x07F000 (window 0, the program's
 bank past its data), the 68000's 0x8FF000.
 
-**What the Sub-CPU does:** once 103 is on, every pass of its loop reads the count (one long through the 68000), takes
-up to 32 new writes (a long = two), and when it has them all gives the chip what changed:
+**What the Sub-CPU does:** once 103 is on, every pass of its loop reads the count (one long through the 68000). If
+there are new writes it has the 68000 copy all of them from the cart's ring into Word RAM in one go - the listener's
+routine 25 `copy_words` as it is (any address to any address) into the 68000's 1M bank at + 0x1E000 - swaps the banks,
+reads them, swaps back, and gives the chip what changed (**TPSG-2, 12 Nov 2026:** before, each two writes were a round
+trip of their own; with the 68000 busy on a picture's list the reader fell more than the ring behind and the effects
+stopped for seconds - found in ares, Sapphire docs/56). Two round trips a pass however many writes wait:
 - a tone: the waveform as 64 cycles (2,048 bytes) and 16 end marks in a piece of wave RAM - written once and kept
   (21 pieces; a game has few waveforms: Sapphire 13 in 21 minutes) - the period as the step FD and a loop start
   (a table for all 4,096 periods: within 3 cents down to 112 Hz, 15 at worst below);
@@ -1651,14 +1655,18 @@ that second was skipped (found 12 Nov in ares: the chip silent for 0.5 s stretch
 PCM channels 0-5 are the PSG's; 6 and 7 are free. **Not together with command 48's effects or command 53** (the same
 wave RAM and channels). DDA (a sample written by the CPU) and the PSG's frequency modulation are not played.
 
-**Cost:** nothing on the SH2s (one command at the start). The Sub-CPU: one long read a pass, and about 5 register
-writes a frame while a game plays.
+**Cost:** nothing on the SH2s (one command at the start). The Sub-CPU: one long read a pass, one copy when there are
+new writes, and about 5 chip register writes a frame while a game plays. **Word RAM:** the 68000's 1M bank at + 0x1E000
+(0x21E000, up to 2 KB) is this command's while it is on; the Sub-CPU's own bank is not written.
 
 **Status (12 Nov 2026): ares only.** PC model (`tools/tower`, Sapphire): the reference's 20,897 frames of PSG writes
 through `tpsg.c` and a model of the chip against the exact PSG: loudness correlation 0.97 a frame with every write
-applied at its time, 0.94 with two updates a frame. In ares (ares_android, console timing) the Sub-CPU reads the ring
-and the PCM chip sounds. **Not on a console.** Not proven there: the chip's loop (whether the end mark's sample also
-steps), wave RAM writes while channels sound, how many ring reads a frame the Sub-CPU's loop makes.
+applied at its time. In ares (ares_android, console timing; Sapphire's machine as the cart's model, the game's
+recording from power-on through the title and two minutes of stage 1, 15,464 game frames): the PCM chip alone against
+Mednafen's PSG in the game's time - loudness correlation 0.94 over 10-frame windows, 0.95 over 30; sound in 213 of the
+217 half-second windows that have it; the reader never more than 447 writes behind. **Not on a console.** Not proven
+there: the chip's loop (whether the end mark's sample also steps), wave RAM writes while channels sound, the 1M bank
+swap twice a pass at this rate, how long a round trip takes with the 68000 on a list.
 
 **Numbers:** 103 (free on every stack: 102 went to `USBLOG`; 83-89 and 92-98 stay with section 22's proposals). No listener routine, nothing new in `hw_md.s`.
 
