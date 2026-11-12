@@ -1627,7 +1627,9 @@ PSG channel maps onto a PCM channel one for one, and the Sub-CPU is idle while a
 
 | CMD | Name | COMM2 | COMM8 | Reply | 68000 routine | Stack |
 |---|---|---|---|---|---|---|
-| **103** | PSG ring on / off | 1 on, 0 off | on: COMM8L = the ring's 68000 address (even) | COMM12 = 1 | none new: `READ_32X_32` and routine 25 `copy_words` as they are | OpenLara path (BootCamp), `TPSG=1` |
+| **103** | PSG ring on / off | low byte 1 on, 0 off | on: COMM8L = the ring's 68000 address (even) | COMM12 = 1 | none new: `READ_32X_32` and routine 25 `copy_words` as they are | OpenLara path (BootCamp), `TPSG=1` |
+| **103** | (TPSG-3) the effects' volume | low byte 2, high byte 0 (silent) - 8 (full) | - | COMM12 = 1 | none | the same |
+| **103** | (TPSG-3) the CD music's volume | low byte 3 | COMM8L = 0 - 0x400 (the BIOS's `FDRSET`) | COMM12 = 1 | `READ_32X_32` | the same |
 
 **Switch:** `TPSG ?= 0` (`stack/subcpu/Makefile`, `HWFLAGS += -DOL_TPSG`; blocks `DX-TPSG`, out of the hash by
 `tools/check_boot.py`). The player is the kit's `tpsg/` folder (`tpsg.c`, `tpsg.h`, `tpsg_tab.h`; `TPSG_DIR` for a
@@ -1667,6 +1669,15 @@ Mednafen's PSG in the game's time - loudness correlation 0.94 over 10-frame wind
 217 half-second windows that have it; the reader never more than 447 writes behind. **Not on a console.** Not proven
 there: the chip's loop (whether the end mark's sample also steps), wave RAM writes while channels sound, the 1M bank
 swap twice a pass at this rate, how long a round trip takes with the 68000 on a list.
+
+**TPSG-3 (12 Nov 2026, the owner: "Add an options menu like MetalSlug. Its ok to edit the bootstack"):** two more
+uses of 103's COMM2 low byte, for a game's options menu (Sapphire_CD32X docs/58), in the same `DX-TPSG` blocks.
+**2: the effects' volume** - COMM2's high byte 0-8 scales every channel's ENV (`tpsg_volume`; 0 turns the channels
+off, which a menu also uses to silence held notes while the game stands still); a later "on" keeps it. **3: the CD
+music's volume** - COMM8L 0-0x400 to the BIOS's `FDRSET` (0x0085) at once and again at each track's start
+(`cdda_start`: a new track would come back at full volume). In ares: with the shots sounding, the PCM chip alone at
+volume 8 / 4 / 0: RMS 800 / 352 / 0, silent under the menu; the CD fader 0x4000 down to 0 in the menu's eight steps.
+Not on a console.
 
 **Numbers:** 103 (free on every stack: 102 went to `USBLOG`; 83-89 and 92-98 stay with section 22's proposals). No listener routine, nothing new in `hw_md.s`.
 
