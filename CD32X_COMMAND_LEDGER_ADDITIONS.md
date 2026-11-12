@@ -1611,3 +1611,49 @@ first loads from the pack (64 sectors, none failing its sum); not run further. T
 from the pack, 1,288 page switches): the end hash without the stack page is `b2fc64ab`, the same as the PC's and as
 the build that read the disc. **Not on a console.** Not proven there: this layout, command 68 at this rate, the armed
 engine in the real core (Quartus has not built it), and that `memrd 0x3EF000` is the log's address.
+
+## 36. TPSG-1 (Sapphire CD32X, 12 Nov 2026): command 103, the PC Engine's PSG played by the PCM chip (Sub-CPU `main.c`, switched)
+
+**Owner:** the BootCamp stack, for Sapphire CD32X at the owner's direction ("The game is a fail without sound effects ...
+The Sound effects. #1 priority whatever it takes. USE THE WHOLE ENTIRE TOWER OF POWER"). **A branch (`tpsg`) until the
+owner takes it:** the stack's main is unchanged. Sapphire_CD32X docs/54. Dracula X and Gate of Thunder lack the same
+sound effects on the console (their FPGA has no room for a PSG): this is for all three.
+
+**Why:** a PC Engine CD game's sound effects are the HuC6280's PSG: six wavetable channels (a 32-step waveform, a
+12-bit period, a volume, a balance; two can be noise). The cart's FPGA has no room to synthesize them, and an SH2 that
+did would take time from the picture. The Sega CD's RF5C164 is eight wavetable channels with a level and a pan each: a
+PSG channel maps onto a PCM channel one for one, and the Sub-CPU is idle while a game plays.
+
+| CMD | Name | COMM2 | COMM8 | Reply | 68000 routine | Stack |
+|---|---|---|---|---|---|---|
+| **103** | PSG ring on / off | 1 on, 0 off | on: COMM8L = the ring's 68000 address (even) | COMM12 = 1 | none new: `READ_32X_32` / `READ_32X_16` as they are | OpenLara path (BootCamp), `TPSG=1` |
+
+**Switch:** `TPSG ?= 0` (`stack/subcpu/Makefile`, `HWFLAGS += -DOL_TPSG`; blocks `DX-TPSG`, out of the hash by
+`tools/check_boot.py`). The player is the kit's `tpsg/` folder (`tpsg.c`, `tpsg.h`, `tpsg_tab.h`; `TPSG_DIR` for a
+build that runs from a copy of `stack/`). With the switch off the Sub-CPU program is as before.
+
+**The ring** (written by the cart's core - in ares by its model; never by the console): at its address a long
+`0x5450 << 16 | count` (the PSG register writes so far, 16 bit), and from + 0x100 1,024 words, write n at index
+n & 1023, each `register << 8 | value` (registers 0-9 of `$0800`). Sapphire: cart 0x07F000 (window 0, the program's
+bank past its data), the 68000's 0x8FF000.
+
+**What the Sub-CPU does:** once 103 is on, every pass of its loop reads the count (one long through the 68000), takes
+up to 32 new writes (a long = two), and when it has them all gives the chip what changed:
+- a tone: the waveform as 64 cycles (2,048 bytes) and 16 end marks in a piece of wave RAM - written once and kept
+  (21 pieces; a game has few waveforms: Sapphire 13 in 21 minutes) - the period as the step FD and a loop start
+  (a table for all 4,096 periods: within 3 cents down to 112 Hz, 15 at worst below);
+- noise: 16 KB of the PSG's own shift register's bits, the noise frequency as FD;
+- the volumes: the PSG's main balance + channel balance + volume (1.5 dB steps) as ENV and the two PAN nibbles.
+PCM channels 0-5 are the PSG's; 6 and 7 are free. **Not together with command 48's effects or command 53** (the same
+wave RAM and channels). DDA (a sample written by the CPU) and the PSG's frequency modulation are not played.
+
+**Cost:** nothing on the SH2s (one command at the start). The Sub-CPU: one long read a pass, and about 5 register
+writes a frame while a game plays.
+
+**Status (12 Nov 2026): ares only.** PC model (`tools/tower`, Sapphire): the reference's 20,897 frames of PSG writes
+through `tpsg.c` and a model of the chip against the exact PSG: loudness correlation 0.97 a frame with every write
+applied at its time, 0.94 with two updates a frame. In ares (ares_android, console timing) the Sub-CPU reads the ring
+and the PCM chip sounds. **Not on a console.** Not proven there: the chip's loop (whether the end mark's sample also
+steps), wave RAM writes while channels sound, how many ring reads a frame the Sub-CPU's loop makes.
+
+**Numbers:** 103 (free on every stack: 102 went to `USBLOG`; 83-89 and 92-98 stay with section 22's proposals).
