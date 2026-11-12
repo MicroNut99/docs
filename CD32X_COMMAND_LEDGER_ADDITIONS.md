@@ -1578,3 +1578,36 @@ data track wiped, the packed launcher - the System Card, Start, the game's openi
 disc, with a page switch (68) before nearly every sector in a test layout. **Not yet on a console:** window 0 on
 another bank is edtest-proven there; this launcher's use of it, and command 68 sent while the core's engine runs, are
 not. (ares let pages 4-6 be read while the engine ran until this day; its board now answers as the core does.)
+
+### 35b. PACKED-1 as Sapphire CD32X uses it (11 Nov 2026; Sapphire_CD32X docs/52)
+
+**Owner's direction:** "the 32X.bin cart has 14MB of RAM for game assets. Dont use the CD unless you must. Just use it
+for CDDA"; the packed launcher approved for Sapphire ("just annote what you did in the ledger and only if it works").
+**No new switch, no number, no change to the stack's files:** `PACKED=1 EDCD_PACKED=1 EDCD_W0=8`, with `CART=16
+M1PAGE=1 FBCART=1` as before, and commands 68 and 101 as they are.
+
+**The file** (Sapphire_CD32X `tools/sa_pack.py`, 14 MB, pages 0-6; page 7 is never used):
+- bank 0 the launcher (`EDPK` at 0x1E0); bank 8 the program, `EDPK` + its length at the bank's + 0x7FFF0;
+- cart 0x080000 the level's start state and 0x2A0000 the shared blocks, where commands 38 + 46 put them from the disc;
+- the Arcade Card's start contents in page 6 (0xC00000);
+- a directory at bank 8 + 0x40000 (`SAPK`, version 2), then the pack: the data track's sectors, each different one
+  once (5,255 of 7,599), LZ4 with one shared 64 KB dictionary (5.83 MB), and the 11 block combinations as 4 KB LZ4
+  pieces (2.20 MB). It lies in bank 8's tail, cart up to 0x1C0000, page 1 behind the shared blocks up to the log at
+  0x3EF000, and pages 2-5. Each sector and each piece carries its sum.
+- The disc has no data file of the game left on it: the stack's own files and the music.
+
+**Three rules it found (ares; each is the hardware's rule, none is the launcher's):**
+1. **A core whose cart window takes a read as a write must stay shut until the game opens it.** The 32X's boot ROM
+   sums the cart by reading it in order, the Arcade Card engine's window (0x1C0000-0x1FFFFF) with it; the engine took
+   those reads as commands and wrote into the pack. The engine now answers 0xFFFF and changes nothing until three reads
+   in a row arm it (`fpga/ac_engine.sv`).
+2. **No SH2 interrupt while the 68000 has the cart (RV = 1: commands 68, 101).** An interrupt handler that lies in the
+   cart is fetched as garbage: the Master's interrupts are masked from the command's send to its end.
+3. **A byte of 0x00 written to the 32X frame buffer is not written** (the hardware manual's rule); a block built there
+   for command 101 is cleared by words first.
+
+**Status (11 Nov 2026): ares only** (ares_android, console timing). From power-on: the title, RUN, into stage 1 with
+no sector failing its sum. The stage 1 to 2 window (1,700 game frames from a state, two combination loads, 710 sectors
+from the pack, 1,288 page switches): the end hash without the stack page is `b2fc64ab`, the same as the PC's and as
+the build that read the disc. **Not on a console.** Not proven there: this layout, command 68 at this rate, the armed
+engine in the real core (Quartus has not built it), and that `memrd 0x3EF000` is the log's address.
