@@ -1658,3 +1658,38 @@ and the PCM chip sounds. **Not on a console.** Not proven there: the chip's loop
 steps), wave RAM writes while channels sound, how many ring reads a frame the Sub-CPU's loop makes.
 
 **Numbers:** 103 (free on every stack: 102 went to `USBLOG`; 83-89 and 92-98 stay with section 22's proposals). No listener routine, nothing new in `hw_md.s`.
+
+## 37. PADVB-1 (Dracula X CD32X, 12 Nov 2026): pad 1 in COMM4 at every vertical blank (listener `hw_md.s`, switched; no number)
+
+**Owner:** the BootCamp stack, for Dracula X CD32X (the owner, 12 Nov 2026: "left and right keep moving when not held
+down. The game is unplayable"). **No command number, no listener routine, nothing in the Sub-CPU program:** four
+instructions in the 68000's vertical blank handler. DraculaX_32X docs/187.
+
+**Why:** an SH2 gets the pad with CMD 48, a round trip through the command loop and the Sub-CPU. A game whose 68000 is
+busy with long listener routines (Dracula X: command 79's lists, most of every picture) can ask only between them: the
+pad reached Dracula X's core a few times a second, a direction let go stayed held until the next asking, and a short
+press of Start was not seen at all. The 68000's blank handler already reads both pads at every blank (for the
+Sub-CPU: `0xA12018`, `0xA1201A`); the SH2s could not see that copy.
+
+**Switch:** `PADVB ?= 0` (`stack/subcpu/Makefile`, `--defsym DX_PADVB=1` through `ASFLAGS_GENPLANE`; `hw_md.s`
+`.ifdef DX_PADVB`, the block `DX-PADVB`, stripped into `stack/GENPLANE_BLOCKS.md5` by `tools/check_boot.py`).
+`build.sh` stops unless the switch reached the assembler. Off: the listener is as before.
+
+**What it does:** in `vblank_int`, after pad 1 is read and written to `0xA12018`: if **COMM6 (`0xA15126`) holds
+`0x5056`**, the same word (`get_pad`'s: the `SEGA_CTRL_*` bits, `0xF000` no pad - what CMD 48 answers in COMM8) is
+written to **COMM4 (`0xA15124`)**.
+- **The key is the game's to set, after its start, never before:** the SH2s' boot keeps `S_OK` in COMM4 / COMM6 until
+  the 68000 has seen it. A game that uses COMM4 or COMM6 for anything else must not build with this switch.
+- The game writes `0xFFFF` to COMM4 and then the key; a COMM4 that is no longer `0xFFFF` is a pad word from this
+  blank or the last. Dracula X's master SH2 reads it in its own blank interrupt.
+- With the 68000's interrupts masked (a cart copy with RV set: about 5 ms) a blank's write is late by that much.
+- Pad 2 is not sent (CMD 48 with `PAD2` still gives it).
+
+**Status: emulation** (ares, 12 Nov 2026, Dracula X v30 from the EverDrive launcher: a 6-frame press of Start is taken
+at the System Card's title and a 20-frame press at the game's, where the same presses through CMD 48 were missed).
+Not yet run on the console.
+
+**Beside TPSG-1 (section 36):** nothing shared - TPSG's ring is read by the Sub-CPU through `READ_32X_32`; PADVB uses
+COMM4 and COMM6 only. Dracula X's own PSG sound (12 Nov 2026, DraculaX_32X docs/185) is on the 32X's PWM, mixed by the
+secondary SH2 from the core's copy of the PSG's registers: no command, no stack change; its core has no write ring
+for command 103 yet.
