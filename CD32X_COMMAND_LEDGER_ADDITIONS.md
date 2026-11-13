@@ -106,7 +106,7 @@ move OpenJazz to MD 38-41 was not carried out: OpenJazz REV kept 37-40.
 | 50 / 51 | file chunk → frame buffer (off-screen 16 KB / splash 32 KB). **Both write COMM12 32 bits wide** (chunk, sectors, a data word): the one place the stack itself overwrites COMM14 |
 | 52 | Genesis display on / off |
 | 53 | load sound pack `SFXnn.BIN`; reply COMM12 = number of effects, 0 = failed |
-| 56 / 59 | backup RAM load / save (BIOS `_BURAM`, `GAME_BRAM_NAME`, 64 blocks = half the console's 8 KB; Rayman's `stack_save.py` cuts its own to 5 blocks, Hurrican's HB-1 to 2); reply COMM12 1 ok. **Sonic R6 (`SCD_SAVE_MIN`): COMM2 = the file, 0 progress (`SONICCD32X_`, 2 blocks) / 1 time attack (`SONICCD32XT`, 5 blocks); its ED launcher (`SCD_MODE1`) keeps both in bank 31 at `0x800000 + file × 512`.** Hurrican ED: → bank-31 piece 12. **Dracula X CD32X (docs/118, 9 Nov 2026): `DRACULAX_32`, 64 blocks - the PC Engine's 2 KB backup RAM in words 0-1023 of the buffer, a record (`DXB1`, FNV-1a) in 1024-1027; its EverDrive build keeps it here too (bank 31 is never used)** |
+| 56 / 59 | backup RAM load / save (BIOS `_BURAM`, `GAME_BRAM_NAME`, 64 blocks = half the console's 8 KB; Rayman's `stack_save.py` cuts its own to 5 blocks, Hurrican's HB-1 to 2); reply COMM12 1 ok. **Sonic R6 (`SCD_SAVE_MIN`): COMM2 = the file, 0 progress (`SONICCD32X_`, 2 blocks) / 1 time attack (`SONICCD32XT`, 5 blocks); its ED launcher (`SCD_MODE1`) keeps both in bank 31 at `0x800000 + file × 512`.** Hurrican ED: → bank-31 piece 12. **Dracula X CD32X (docs/118, 9 Nov 2026): `DRACULAX_32`, 64 blocks - the PC Engine's 2 KB backup RAM in words 0-1023 of the buffer, a record (`DXB1`, FNV-1a) in 1024-1027; its EverDrive build kept it here too until 13 Nov 2026; since v37 (its docs/194, the owner: "saves directly to the MEDPro SDCard") the launcher saves the same 4 KB to its bank 31, piece 0, by 76 / 77 (sections 16, 18), and 56 / 59 are used only when the bank does not answer** |
 | 57 / 58 | buffer word get / put (COMM2 = word 0-2047 of the 4 KB buffer; 58 fills it for 59, 61 and every bank-31 command of section 16) |
 | 60 | D32X: start D32XR from the cart (never returns). D32XR CD32X sets window 1 to page 7 first (section 15) |
 | 61 | save area: 4 KB piece → cart 0x3F0000 + (COMM2 & 15) × 4 KB, read back; reply COMM12 1 ok. `SLOTS=1`: bit 8 → OpenLara's slot area, reply 0x101 (section 11). **ED launcher builds:** the same piece → bank 31, reply `1 \| 0x200` (section 16) |
@@ -119,7 +119,7 @@ move OpenJazz to MD 38-41 was not carried out: OpenJazz REV kept 37-40.
 | **72 / 73** | Rayman: bank-31 save piece out / in at bank offset `0x30000` (section 17) |
 | **74** | **two owners:** Rayman: plane A scroll at the vertical blank (section 17, MD 38); BootCamp `sdcard/`: `SDSAVE_CMD_OUT` (section 18) |
 | **75** | BootCamp `sdcard/`: `SDSAVE_CMD_IN` (section 18) |
-| **76 / 77** | **BootCamp `sdcard/` kit's `SDSAVE_CMD_OUT` / `SDSAVE_CMD_IN` at the numbers section 18 asked for**: first used so by Road Rash CD32X (13 Nov 2026, `SDSAVE_OUT=76 SDSAVE_IN=77` in its build's copy of the stack; ares only). The kit's own defaults are still 74 / 75 (section 18) |
+| **76 / 77** | **BootCamp `sdcard/` kit's `SDSAVE_CMD_OUT` / `SDSAVE_CMD_IN` at the numbers section 18 asked for**: first used so by Road Rash CD32X (13 Nov 2026, `SDSAVE_OUT=76 SDSAVE_IN=77` in its build's copy of the stack; ares only); **Dracula X CD32X v37 the same day** (piece 0: its PC Engine backup RAM, section 16; ares only). The kit's own defaults are still 74 / 75 (section 18) |
 | **78** | **BootCamp stack, `VSPLIT=1` (needs `GENPLANE=1`): V scroll line split** - the planes' V scroll changed part-way down the screen by the Genesis H interrupt; double-buffered list (sections 21, 21a) |
 | **79** | **BootCamp stack, `FBVDP=1` (needs `GENPLANE=1 VSPLIT=1`): the Genesis VDP from a list in the 32X frame buffer** - map words, converted tiles, H scroll tables a running game makes; part kept for a commit after the 32X swap (section 24) |
 | **80** | Kobo path only (Sonic CD 2011): the stamp floor (section 6). Not on this stack, but keep it clear |
@@ -132,7 +132,7 @@ move OpenJazz to MD 38-41 was not carried out: OpenJazz REV kept 37-40.
 | **103** | **BootCamp stack, `TPSG=1`: the PC Engine's PSG played by the PCM chip** - COMM2 = 1 on (COMM8L = the 68000 address of the cart core's PSG write ring) / 0 off; reply COMM12 = 1; the Sub-CPU then reads the ring every pass through `READ_32X_32` and drives PCM channels 0-5 (Sapphire CD32X, section 36) |
 | **104** | **BootCamp stack, `CDFADE=1`: the CD music's volume set or faded** - COMM2 = the volume to go to, 0-0x400 (full); COMM8 = the slope, 0 = at once (BIOS FDRSET), else a step at each of the BIOS's drive interrupts, 75 a second (FDRCHG); no reply (Dracula X CD32X, section 38) |
 
-**Free on this stack (3 Nov 2026: 100 went to `ZCHUNK`, section 27; 99 went to `TILEP`, section 25; 79 went to `FBVDP`, section 24; 84 and 90 to `traytest/` on 2 Nov, section 22):** 39-43, 49, 55, **76, 77, 83, 85-89, 92-98, 105 and up** (104 went to `CDFADE`, section 38, 12 Nov; 103 went to `TPSG`, section 36, 12 Nov; 102 went to `USBLOG`, section 34; 81 went to `CDPAUSE`, section 31; 91 went to `CDRING`, section 29; 101 to `FBCART`, section 30) (78 went to `VSPLIT` on 31 Oct,
+**Free on this stack (3 Nov 2026: 100 went to `ZCHUNK`, section 27; 99 went to `TILEP`, section 25; 79 went to `FBVDP`, section 24; 84 and 90 to `traytest/` on 2 Nov, section 22):** 39-43, 49, 55, **83, 85-89, 92-98, 105 and up** (76 / 77 are the `sdcard/` kit's since 13 Nov, section 18; 104 went to `CDFADE`, section 38, 12 Nov; 103 went to `TPSG`, section 36, 12 Nov; 102 went to `USBLOG`, section 34; 81 went to `CDPAUSE`, section 31; 91 went to `CDRING`, section 29; 101 to `FBCART`, section 30) (78 went to `VSPLIT` on 31 Oct,
 section 21; 76 / 77 are the ones section 18 asks `sdcard/` to move to). Free on every stack (this one, Kobo,
 OpenTyrian): **83, 85-89, 92-98, 105 and up** (76 / 77: the `sdcard/` kit's, in use since 13 Nov 2026, section 18; 104: `CDFADE`, section 38; 103: `TPSG`, section 36; 102: `USBLOG`, section 34; 81: `CDPAUSE`, section 31; 82: Jumping Flash, section 32, 7 Nov 2026). The old line "69 and up" was behind the code by eight numbers
 (69-75: OpenJazz REV, SuperTux, Rayman, `sdcard/`); BootCamp docs/03 had it right (72-79, 81+) until
@@ -163,6 +163,7 @@ should take numbers free on both (76 and up, 31 Oct 2026).
 | 72 / 73 | - | - | - | bank-31 piece out / in | - | - |
 | 74 | `sdcard/` **SDSAVE out** | - | - | **scroll at vblank** | - | - |
 | 75 | `sdcard/` SDSAVE in | - | - | - | - | - |
+| 76 / 77 | `sdcard/` SDSAVE out / in as the games build it (`SDSAVE_OUT=76 SDSAVE_IN=77`: Road Rash, Dracula X; section 18) | - | - | - | - | - |
 | 78 | **V scroll line split** (`VSPLIT=1`) | - | - | - | - | - |
 | 79 | **Genesis VDP from the frame buffer** (`FBVDP=1`) | - | - | - | - | - |
 | 80 | - | - | - | - | stamp floor | - |
@@ -672,12 +673,17 @@ and up): the OS writes that much to `MEGA/gamedata/<launcher>/bram.srm`.
 | SuperTux CD32X REV | 61 | **69** (62 is its `VRAM word`) | `n × 4 KB` | as OpenLara | `cd32x/subcpu/main.c` `CART_EDSAVE`, `STX_CART_PAGED` |
 | Rayman CD32X (section 17) | **72** (COMM2 & 15) | **73** | **`0x30000 + n × 4 KB`** | `0x201` / 0 | `tools/stack_save.py`, `RAY_SAVE` |
 | CD32X-BootCamp `sdcard/` (section 18) | **74** (COMM2 = piece 0-63) | **75** (`0x8000` = only ask) | `n × 4 KB` across the whole 256 KB | `0x201` / 0 | `sdcard/subcpu/merge_sdsave.py`, `SDSAVE` |
+| **Dracula X CD32X** v37 (13 Nov 2026) | **76** (the kit's, `SDSAVE_OUT=76`), piece 0 | **77**, piece 0 (`0x8000` asked once at the start) | piece 0 only: words 0-1023 the PC Engine's 2 KB backup RAM, 1024-1027 the record (`DXB1`, FNV-1a) - what its 59 wrote to the Sega CD | `0x201` / 0 | `dxspeed/src/eng.c` `DX_SDSAVE`; the kit merged into the build's copy of the stack, `EDCD_SAVE=1 SDSAVE=1 SDSAVE_OUT=76 SDSAVE_IN=77` |
 
 - The ports' 61 keeps its save-area meaning on the 4 MB cart and goes to bank 31 only in the launcher's
   program while window 1 shows page 1 (`ed_page == 1`), so a game's saves are page-1 saves on the PCB cart
   and bank-31 saves on the EverDrive without a change to the engine.
+- **Dracula X's sending.** Not the kit's `sdsave.c`: its slave park is a word in COMM4, which is `PADVB`'s there
+  (section 37). It sends 76 / 77 with its own `ed_cmd` (the secondary parked in SDRAM by a flag, the master waiting in
+  SDRAM with interrupts masked), as its 91 and 101 have run on the console since its v25. 58's words go only for the
+  32-word parts the Sub-CPU's buffer does not already hold (only 56, 58 and 77 write it).
 - **Status.** OpenLara: console (26 Oct, save / load / relaunch / load). OpenJazz REV, Hurrican, SuperTux,
-  D32XR, Rayman, `sdcard/`: ares only (the EverDrive board), code-reviewed for the parked waits. ares holds
+  D32XR, Rayman, `sdcard/`, Road Rash, Dracula X: ares only (the EverDrive board), code-reviewed for the parked waits. ares holds
   the SH2s during RV = 1 and keeps the PSRAM across runs, so an ares pass covers neither the garbage rule
   nor the wipe (BootCamp docs/11).
 
@@ -743,6 +749,10 @@ move; whoever makes it updates sections 3, 18 and this line.
 `RRS2` at offset 0 of its launcher's own bank). They are the kit's numbers from now on and no longer free; the kit's
 defaults in `merge_sdsave.py` / `sdsave.h` are still 74 / 75 and are the owner's to change. Status: ares only (save,
 banks 0-30 wiped, relaunch, load).
+
+**Dracula X CD32X v37 (13 Nov 2026)** builds them the same way (`SDSAVE=1 SDSAVE_OUT=76 SDSAVE_IN=77 EDCD_SAVE=1`):
+piece 0 of its launcher's bank (section 16). ares: saved, read back at the next start. Its launcher keeps one file
+name from v37 on (`DraculaX_EDCD.32X`) so the save carries over from version to version.
 
 ## 19. OpenJazz CD32X REV (R7-R11, to `d486f58`): commands 67, 69, 70, 71
 
