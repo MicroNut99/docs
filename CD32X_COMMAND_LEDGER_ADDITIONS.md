@@ -119,6 +119,7 @@ move OpenJazz to MD 38-41 was not carried out: OpenJazz REV kept 37-40.
 | **72 / 73** | Rayman: bank-31 save piece out / in at bank offset `0x30000` (section 17) |
 | **74** | **two owners:** Rayman: plane A scroll at the vertical blank (section 17, MD 38); BootCamp `sdcard/`: `SDSAVE_CMD_OUT` (section 18) |
 | **75** | BootCamp `sdcard/`: `SDSAVE_CMD_IN` (section 18) |
+| **76 / 77** | **BootCamp `sdcard/` kit's `SDSAVE_CMD_OUT` / `SDSAVE_CMD_IN` at the numbers section 18 asked for**: first used so by Road Rash CD32X (13 Nov 2026, `SDSAVE_OUT=76 SDSAVE_IN=77` in its build's copy of the stack; ares only). The kit's own defaults are still 74 / 75 (section 18) |
 | **78** | **BootCamp stack, `VSPLIT=1` (needs `GENPLANE=1`): V scroll line split** - the planes' V scroll changed part-way down the screen by the Genesis H interrupt; double-buffered list (sections 21, 21a) |
 | **79** | **BootCamp stack, `FBVDP=1` (needs `GENPLANE=1 VSPLIT=1`): the Genesis VDP from a list in the 32X frame buffer** - map words, converted tiles, H scroll tables a running game makes; part kept for a commit after the 32X swap (section 24) |
 | **80** | Kobo path only (Sonic CD 2011): the stamp floor (section 6). Not on this stack, but keep it clear |
@@ -133,7 +134,7 @@ move OpenJazz to MD 38-41 was not carried out: OpenJazz REV kept 37-40.
 
 **Free on this stack (3 Nov 2026: 100 went to `ZCHUNK`, section 27; 99 went to `TILEP`, section 25; 79 went to `FBVDP`, section 24; 84 and 90 to `traytest/` on 2 Nov, section 22):** 39-43, 49, 55, **76, 77, 83, 85-89, 92-98, 105 and up** (104 went to `CDFADE`, section 38, 12 Nov; 103 went to `TPSG`, section 36, 12 Nov; 102 went to `USBLOG`, section 34; 81 went to `CDPAUSE`, section 31; 91 went to `CDRING`, section 29; 101 to `FBCART`, section 30) (78 went to `VSPLIT` on 31 Oct,
 section 21; 76 / 77 are the ones section 18 asks `sdcard/` to move to). Free on every stack (this one, Kobo,
-OpenTyrian): **76, 77, 83, 85-89, 92-98, 105 and up** (104: `CDFADE`, section 38; 103: `TPSG`, section 36; 102: `USBLOG`, section 34; 81: `CDPAUSE`, section 31; 82: Jumping Flash, section 32, 7 Nov 2026). The old line "69 and up" was behind the code by eight numbers
+OpenTyrian): **83, 85-89, 92-98, 105 and up** (76 / 77: the `sdcard/` kit's, in use since 13 Nov 2026, section 18; 104: `CDFADE`, section 38; 103: `TPSG`, section 36; 102: `USBLOG`, section 34; 81: `CDPAUSE`, section 31; 82: Jumping Flash, section 32, 7 Nov 2026). The old line "69 and up" was behind the code by eight numbers
 (69-75: OpenJazz REV, SuperTux, Rayman, `sdcard/`); BootCamp docs/03 had it right (72-79, 81+) until
 Rayman and `sdcard/` took 72-75 on 26-27 Oct.
 
@@ -736,6 +737,12 @@ defaults to 76 / 77** (`SDSAVE_OUT=` / `SDSAVE_IN=` in the make, `-DSDSAVE_CMD_O
 on the SH2 side, together) before any game ships with it; until then a game that merges both Rayman's
 scroll and the kit must pass the override. This ledger keeps 76 / 77 free (78 went to `VSPLIT`, section 21) so that the next taker sees the
 move; whoever makes it updates sections 3, 18 and this line.
+
+**13 Nov 2026: 76 / 77 are in use.** Road Rash CD32X builds the kit's commands as 76 / 77 (`build_rr.sh`:
+`SDSAVE=1 SDSAVE_OUT=76 SDSAVE_IN=77 EDCD_SAVE=1`, `-DSDSAVE_CMD_OUT=76 -DSDSAVE_CMD_IN=77` for the SH2; its career record
+`RRS2` at offset 0 of its launcher's own bank). They are the kit's numbers from now on and no longer free; the kit's
+defaults in `merge_sdsave.py` / `sdsave.h` are still 74 / 75 and are the owner's to change. Status: ares only (save,
+banks 0-30 wiped, relaunch, load).
 
 ## 19. OpenJazz CD32X REV (R7-R11, to `d486f58`): commands 67, 69, 70, 71
 
