@@ -112,7 +112,7 @@ move OpenJazz to MD 38-41 was not carried out: OpenJazz REV kept 37-40.
 | 61 | save area: 4 KB piece → cart 0x3F0000 + (COMM2 & 15) × 4 KB, read back; reply COMM12 1 ok. `SLOTS=1`: bit 8 → OpenLara's slot area, reply 0x101 (section 11). **ED launcher builds:** the same piece → bank 31, reply `1 \| 0x200` (section 16) |
 | **62–67** | **the Genesis picture (section 1)** - **the BootCamp stack itself with `GENPLANE=1` (since `252265a`, 31 Oct 2026, section 20)**, SuperTux REV, Rayman (`RAY_GENVDP`, 62-67 as SuperTux's), Dracula X CD32X. **62 = "save piece in" on OpenLara EDCD, OpenJazz REV, Hurrican** (section 16); **62 = "Genesis background" on D32XR** (COMM2 1 load + show from cart offset COMM8L (`GBG1` pack: tiles → VRAM `0x1000`, map → plane B `0xE000`, CRAM line 3), 2 scroll (COMM8 h, COMM12 v → MD 36), 0 off; reply COMM12 1) |
 | **67** | OpenJazz REV: Genesis plane (section 19) - not SuperTux's columns |
-| **68** | **cart page, window 1 (section 7)**: 8 / 16 MB SRAM cart, OpenLara CD32X-REV test builds; SuperTux CD32X REV `CART_MB=8/16` builds (REV11-16MB-T1); OpenJazz REV, Hurrican, D32XR, Rayman paged builds. `CART=ED`: pages 1-6 only, four word writes to CTRL4-7 (section 16) |
+| **68** | **cart page, window 1 (section 7)**: 8 / 16 MB SRAM cart, OpenLara CD32X-REV test builds; SuperTux CD32X REV `CART_MB=8/16` builds (REV11-16MB-T1); OpenJazz REV, Hurrican, D32XR, Rayman paged builds. `CART=ED`: pages 1-6 only, four word writes to CTRL4-7 (section 16). **Road Rash CD32X (`RRWIN=1`): `0x80 | b` shows banks b, b+1 in windows 4-5 (section 39)** |
 | **69** | OpenJazz REV: unpack a compressed pack page → page (section 19). **SuperTux REV ED builds: "save piece in"** (section 16) |
 | **70** | OpenJazz REV: the disc's stamp → COMM8L (section 19) |
 | **71** | OpenJazz REV: bonus level floor on the graphics chip (section 19) |
@@ -1788,3 +1788,27 @@ track started right after a fade came up over half a second in ares, where a rea
 **Numbers:** 104 (free on every stack until now; 83, 85-89 and 92-98 stay with section 22's proposals; 76 / 77 with
 `sdcard/`'s move). No listener routine.
 
+## 39. RR-WIN-1 (Road Rash CD32X, 21 Nov 2026): command 68's bank form, any two banks in windows 4-7 (Sub-CPU `main.c` and listener `hw_md.s`, switched; no number)
+
+**Owner:** Road Rash CD32X ("Videos ... what about the CD?", the owner, 21 Nov 2026; RoadRash32X_CD32X docs/19). The
+change lives in that game's build only: `tools/rr_stack.py` writes it into the copy of the stack `build_rr.sh` builds
+(blocks `RR-WIN begin / end`), as the `sdcard/` kit's merge does, and writes that copy's `BOOT_FILES.md5` again. The
+BootCamp's `stack/` is not edited.
+
+**Why:** the game streams its videos from the CD into the cart with command 91 (CDRING, section 29) and the SH2 plays
+them from there. The ring needs banks no page shows to the SH2: a page (MODE1-9, section 16) puts banks 4p .. 4p + 3 in
+windows 4-7, and the SH2 reads only windows 4-5 (cart 0x200000-0x2FFFFF; OutRun CD32X's run 8 saw no read of window 6
+reach the cart, and ares agrees). Banks 26-27 (free in that game's launcher) are in no page's windows 4-5.
+
+**Switch:** `RRWIN ?= 0` (`stack/subcpu/Makefile`: `-DRR_WIN=1` into HWFLAGS, `--defsym RR_WIN=1` into ASFLAGS). Off:
+both files as before.
+
+| CMD | COMM2 | Reply | What it does |
+|---|---|---|---|
+| 68 | **`0x80 | b`, b 8-26** (the page form 1-7 as before) | COMM12 = 1 done / 0 refused | as the page form: the byte goes to the listener (routine 26, `safe_cart_xfer`, to `0xA130F2`); `m1_page` (MODE1-9) sees bit 7 and writes CTRL4..7 = **b, b + 1, b, b + 1** (and `m1_wb`, as for a page) |
+
+- Banks 28-31 can never be shown by it (b + 1 <= 27).
+- The game asks for its pages again afterwards (its `cart_page_now`), as after any other page.
+
+**Status: emulation** (ares, 21 Nov 2026, Road Rash v143-v145: the 86-second intro streamed from the disc into banks 26-27
+at 12 frames a second with its sound, no gap in the sound, then the game's pages as before). Not yet run on the console.
