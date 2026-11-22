@@ -1805,10 +1805,12 @@ both files as before.
 
 | CMD | COMM2 | Reply | What it does |
 |---|---|---|---|
-| 68 | **`0x80 | b`, b 8-26** (the page form 1-7 as before) | COMM12 = 1 done / 0 refused | as the page form: the byte goes to the listener (routine 26, `safe_cart_xfer`, to `0xA130F2`); `m1_page` (MODE1-9) sees bit 7 and writes CTRL4..7 = **b, b + 1, b, b + 1** (and `m1_wb`, as for a page) |
+| 68 | **`0x80 | b`, b 1-26** (the page form 1-7 as before; b 8-26 until 22 Nov) | COMM12 = 1 done / 0 refused | as the page form: the byte goes to the listener (routine 26, `safe_cart_xfer`, to `0xA130F2`); `m1_page` (MODE1-9) sees bit 7 and writes CTRL4..7 = **b, b + 1, b, b + 1** (and `m1_wb`, as for a page) |
 
 - Banks 28-31 can never be shown by it (b + 1 <= 27).
 - The game asks for its pages again afterwards (its `cart_page_now`), as after any other page.
+- 22 Nov 2026: b 1-26 (was 8-26). Road Rash CD32X's front-end pictures (its docs/20) are in banks 6-7 and 10-11, read
+  through this form as the videos' ring is.
 
 **Status: emulation** (ares, 21 Nov 2026, Road Rash v143-v145: the 86-second intro streamed from the disc into banks 26-27
 at 12 frames a second with its sound, no gap in the sound, then the game's pages as before). Not yet run on the console.
