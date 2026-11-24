@@ -1,11 +1,13 @@
 
 https://consolemods.org/wiki/Genesis:MD_32X_RAM_Cart
 
-
 	MegaManX_32XMD+MEDPro_v13.zip
 	https://mega.nz/file/pcpD3CBJ#9U6ne0TeZRcgFBwfph6XWE6Z4kYSmmmLTd2sOmsTwiw
 	
-	OutRun_MD+_MEDPro_v34.zip - Standalone - No SegaCD required
+    OutRun_MD+_MEDPro_v38
+    https://mega.nz/file/RBoTSbqR#E26EO8H6MVjEi9WdhqpJBq5th2TKIp-oDIkBK9y9szw
+    
+    OtRun_MD+_MEDPro_v34.zip - Standalone - No SegaCD required
 	https://mega.nz/file/8QQVEAzY#PB2jHfwrcgmoZSTB4sqRRbUPUK5-kydKakvia32ggm8
 	
 	OutRun_CD32X_V28.zip MEDPro Only
