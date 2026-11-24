@@ -2,10 +2,10 @@
 https://consolemods.org/wiki/Genesis:MD_32X_RAM_Cart
 
 
-	MegaManX_32XMD+MEDPro_v12.zip
-	https://mega.nz/file/5MoXwbDI#7iwmhbAfbpidcZjby1k18SrqBFsLa1VrcR-wdHC-uJc
+	MegaManX_32XMD+MEDPro_v13.zip
+	https://mega.nz/file/pcpD3CBJ#9U6ne0TeZRcgFBwfph6XWE6Z4kYSmmmLTd2sOmsTwiw
 	
-	OutRun_MD+_MEDPro_v34.zip
+	OutRun_MD+_MEDPro_v34.zip - Standalone - No SegaCD required
 	https://mega.nz/file/8QQVEAzY#PB2jHfwrcgmoZSTB4sqRRbUPUK5-kydKakvia32ggm8
 	
 	OutRun_CD32X_V28.zip MEDPro Only
@@ -18,7 +18,7 @@ https://consolemods.org/wiki/Genesis:MD_32X_RAM_Cart
 	https://mega.nz/file/dR5znYLI#XaUCjxrWMo4uT9PhkDyDyUNepnS2unG7w3Dh0C2WTK4
 
 
-Krikzz Mega EverDrive Pro ONLY
+    Krikzz Mega EverDrive Pro ONLY
 	Rayman_FX.zip Rayman_32X_R4_MEDPro_FPGA ONLY
     https://mega.nz/file/tZJXFSRR#9xi-zmktkBexgT-7tfYZyySkUV877V5FIyhm_-Q3e84
 	
