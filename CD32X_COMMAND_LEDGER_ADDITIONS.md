@@ -131,10 +131,11 @@ move OpenJazz to MD 38-41 was not carried out: OpenJazz REV kept 37-40.
 | **102** | **BootCamp stack, `USBLOG=1` (needs `TILEP=1`): a test build's log out of the Mega EverDrive PRO's USB port** - 12-byte records kept by the Sub-CPU, sent through the cart's FIFO by listener routine 41 `usb_out` with RV = 1 (Metal Slug CD32X, section 34) |
 | **103** | **BootCamp stack, `TPSG=1`: the PC Engine's PSG played by the PCM chip** - COMM2 = 1 on (COMM8L = the 68000 address of the cart core's PSG write ring) / 0 off; reply COMM12 = 1; the Sub-CPU then reads the ring every pass through `READ_32X_32` and drives PCM channels 0-5 (Sapphire CD32X, section 36) |
 | **104** | **BootCamp stack, `CDFADE=1`: the CD music's volume set or faded** - COMM2 = the volume to go to, 0-0x400 (full); COMM8 = the slope, 0 = at once (BIOS FDRSET), else a step at each of the BIOS's drive interrupts, 75 a second (FDRCHG); no reply (Dracula X CD32X, section 38) |
+| **105** | **OutRun CD32X, `MDP=1` (a merge into the build's copy of the stack, `tools/merge_mdp.py`): an MD+ command to the Mega EverDrive PRO** - COMM2 = the command (0x11tt track tt once, 0x12tt repeating, 0x1300 stop); the 68000 writes CD54, 0000, command at cart 0x03F7FA with RV = 1; reply COMM12 = 0x4D50, 0 without `MODE1` (section 40) |
 
-**Free on this stack (3 Nov 2026: 100 went to `ZCHUNK`, section 27; 99 went to `TILEP`, section 25; 79 went to `FBVDP`, section 24; 84 and 90 to `traytest/` on 2 Nov, section 22):** 39-43, 49, 55, **83, 85-89, 92-98, 105 and up** (76 / 77 are the `sdcard/` kit's since 13 Nov, section 18; 104 went to `CDFADE`, section 38, 12 Nov; 103 went to `TPSG`, section 36, 12 Nov; 102 went to `USBLOG`, section 34; 81 went to `CDPAUSE`, section 31; 91 went to `CDRING`, section 29; 101 to `FBCART`, section 30) (78 went to `VSPLIT` on 31 Oct,
+**Free on this stack (3 Nov 2026: 100 went to `ZCHUNK`, section 27; 99 went to `TILEP`, section 25; 79 went to `FBVDP`, section 24; 84 and 90 to `traytest/` on 2 Nov, section 22):** 39-43, 49, 55, **83, 85-89, 92-98, 106 and up (105: MD+, section 40, 23 Nov 2026)** (76 / 77 are the `sdcard/` kit's since 13 Nov, section 18; 104 went to `CDFADE`, section 38, 12 Nov; 103 went to `TPSG`, section 36, 12 Nov; 102 went to `USBLOG`, section 34; 81 went to `CDPAUSE`, section 31; 91 went to `CDRING`, section 29; 101 to `FBCART`, section 30) (78 went to `VSPLIT` on 31 Oct,
 section 21; 76 / 77 are the ones section 18 asks `sdcard/` to move to). Free on every stack (this one, Kobo,
-OpenTyrian): **83, 85-89, 92-98, 105 and up** (76 / 77: the `sdcard/` kit's, in use since 13 Nov 2026, section 18; 104: `CDFADE`, section 38; 103: `TPSG`, section 36; 102: `USBLOG`, section 34; 81: `CDPAUSE`, section 31; 82: Jumping Flash, section 32, 7 Nov 2026). The old line "69 and up" was behind the code by eight numbers
+OpenTyrian): **83, 85-89, 92-98, 106 and up** (76 / 77: the `sdcard/` kit's, in use since 13 Nov 2026, section 18; 104: `CDFADE`, section 38; 103: `TPSG`, section 36; 102: `USBLOG`, section 34; 81: `CDPAUSE`, section 31; 82: Jumping Flash, section 32, 7 Nov 2026). The old line "69 and up" was behind the code by eight numbers
 (69-75: OpenJazz REV, SuperTux, Rayman, `sdcard/`); BootCamp docs/03 had it right (72-79, 81+) until
 Rayman and `sdcard/` took 72-75 on 26-27 Oct.
 
@@ -1814,3 +1815,51 @@ both files as before.
 
 **Status: emulation** (ares, 21 Nov 2026, Road Rash v143-v145: the 86-second intro streamed from the disc into banks 26-27
 at 12 frames a second with its sound, no gap in the sound, then the game's pages as before). Not yet run on the console.
+
+## 40. MDP-1 (OutRun CD32X, 23 Nov 2026): command 105 and a listener route, MD+ on the Mega EverDrive PRO; and the launcher without a Sega CD (merged into a build's copy; the stack untouched)
+
+**Owner:** OutRun CD32X (MicroNut99/cannonballcd32x, branch `edcd-14mb`), at the owner's request ("add MD+ please").
+**Nothing in `stack/` is changed:** two scripts patch the build's COPY of the BootCamp, as `sdcard/subcpu/merge_sdsave.py`
+does - `tools/merge_mdp.py` (Sub-CPU `main.c`, listener `hw_md.s`, `Makefile`) and `tools/merge_nocd.py`
+(`edboot/edcd_md.s`). Copies of both are in the BootCamp's `mdplus/`; BootCamp docs/14.
+
+**What MD+ is here:** krikzz's `mapper/lib_base/mdp.sv` is in every core built from his tree with `MDP_ON` (the
+default `topcfg.sv`). The EverDrive's OS turns it on (`cfg.fea_mdp`) for a ROM started with a `.cue` of the same name
+beside it - **a `.32X` too** - and then plays the cue's tracks from the SD card through its own DAC. Its registers
+are compared with the bus address, `addr[21:0]`, whatever the mapper's banks:
+
+| cart address | |
+|---|---|
+| 0x03F7FA (write) | 0xCD54 opens the overlay (any other value closes it) |
+| 0x03F7FE (write) | a command: 0x11tt play track tt once, 0x12tt repeating, 0x1300 stop (the MegaSD / MD+ set) |
+| 0x03F7F6, 0x03F7F8 (read, open) | 0x5241, 0x5445: "RATE" |
+| 0x03F7FC, 0x03F7FE (read, open) | the response; the command's state (0 = done, 0xFFFF = running) |
+| 0x03F800-0x03FFFF (read, open) | its data buffer |
+
+**Command 105** (`MDP=1`, with `MODE1=1`): COMM2 = the MD+ command. The Sub-CPU puts CD54, 0000, command in Word
+RAM and has the 68000 copy the 3 words to cart 0x03F7FA (`CHILLY_RV_MEMCPY`); reply COMM12 = 0x4D50. The game parks
+the slave and waits in SDRAM, as for every copy made with RV = 1. Without `MODE1` (the disc's own program) it
+answers 0. **The listener** (`M1MDP=1`, with `M1SAVE=1`): `m1_cart` sends a copy whose cart address is 0x03F7FA
+straight to the cart (`m1_rvcpy`, W on inside); MODE1-3 would send it through window 1, another bus address, which
+MD+ does not see. The SH2 reads "RATE" itself at 0x2203F7F6.
+
+**Console, 23 Nov 2026 (OutRun CD32X V33, kit 14 core, 32X + Sega CD + EverDrive PRO):** `1 4D50 5241 5445 CD54
+0000` - the write reached MD+ and the cart's RAM (0x03F7FA read back CD54), "RATE" answered, the music played from
+the SD card with the drive's lid open. **So a 68000 write at a window-0 address with RV = 1 does reach the cart on a
+32X**, at least at 0x03F7FA-0x03F7FE; MODE1-3's finding (25 Oct: the cart's first bytes) stands for where it was
+measured. The numbers 103 and 104 were tried first by mistake (TPSG's and CDFADE's, sections 36 and 38: the build's
+pinned manuals were older than the ledger): 105 since V36.
+
+**Mistakes on the way (three builds):** `'h3F7FA` read as 0x3F7FAx - the writes went to 0x3F7FFA, then 0x3F77FA,
+through command 61's piece 7. It is five digits: window 0.
+
+**Without a Sega CD (`tools/merge_nocd.py`, console 23 Nov 2026, V34: "that works"):** with a packed launcher
+(section 35: the program and the data from the SD card) the launcher no longer stops blue when it finds no Sega CD.
+It copies a 68000 program to work RAM (0xFF9000, the 4 KB buffer at 0xFFA000, no interrupts) that does the listener's
+start (the Genesis VDP, window 0 = the program's bank, the 32X registers, COMM4 = 0x1234, COMM10 0x0AAA -> 0x0BBB)
+and answers the SH2s' commands in COMM0 itself: 48 the pad, 52 the Genesis display, 38 no file, 53 / 56 / 59 nothing
+there, 57 / 58 the buffer, 74 / 75 the save bank (bank 31 through window 1), 105 MD+; any other number is cleared.
+Lost without the Sega CD: its PCM chip (command 48's effect number is dropped), CD audio (MD+ instead), backup RAM
+(the EverDrive's save bank instead). ares_android models both (`--machine 32x --game <launcher> --ramcart-type
+everdrive`; MD+'s registers with a `.cue` beside the launcher or `ARES_MDPLUS=1`, no sound).
+
